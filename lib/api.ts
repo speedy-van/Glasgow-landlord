@@ -1,5 +1,10 @@
 import { getAdminSession } from "./auth";
-import { administratorEmails, authenticationConfigured } from "./config";
+import {
+  administratorEmails,
+  authenticationConfigured,
+  siteOrigin,
+} from "./config";
+import { hasTrustedOrigin } from "./request-origin";
 import { ApiError, config, database } from "./server-store";
 import { ZodError } from "zod";
 export async function requireAdmin() {
@@ -16,9 +21,7 @@ export async function requireAdmin() {
   return session.user;
 }
 export function sameOrigin(req: Request) {
-  const origin = req.headers.get("origin");
-  const fetchSite = req.headers.get("sec-fetch-site");
-  if (origin !== new URL(req.url).origin || fetchSite === "cross-site")
+  if (!hasTrustedOrigin(req, siteOrigin()))
     throw new ApiError(403, "Please submit this request from the website.");
 }
 export async function jsonBody(req: Request) {

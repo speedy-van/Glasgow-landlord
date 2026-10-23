@@ -3,12 +3,12 @@ import { createId } from "@/lib/uuid";
 import { AdminSignOut } from "./admin-auth";
 import { MAX_IMAGE_BYTES } from "@/lib/media";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   Box,
   Flex,
   Grid,
   Text,
-  Heading,
   Button,
   IconButton,
   Input,
@@ -19,7 +19,6 @@ import {
   Drawer,
   Portal,
   CloseButton,
-  Spinner,
   Switch,
   chakra,
 } from "@chakra-ui/react";
@@ -34,7 +33,6 @@ import {
   ArrowUpRight,
   ArrowRight,
   Plus,
-  Search,
   Menu,
   Check,
   Cloud,
@@ -49,8 +47,6 @@ import {
   KeyRound,
   TriangleAlert,
   Save,
-  House,
-  Truck,
 } from "lucide-react";
 import { Wrap, Eyebrow, Editorial, Action, Empty, TextLink } from "./design";
 import { FormField } from "./quote-form";
@@ -90,11 +86,11 @@ const tabs: Array<{ id: Tab; label: string; icon: typeof Package }> = [
 ];
 export function AdminAccess() {
   return (
-    <Wrap py="12">
+    <Wrap as="main" py="12">
       <Brand />
       <Box py="20" maxW="620px">
         <Eyebrow>ADMINISTRATOR ACCESS</Eyebrow>
-        <Editorial>This workspace is private.</Editorial>
+        <Editorial as="h1">This workspace is private.</Editorial>
         <Text mt="7" lineHeight="2" fontSize="13px" color="muted">
           This account does not have permission to open administration. Sign out
           and use your administrator account.
@@ -106,11 +102,12 @@ export function AdminAccess() {
   );
 }
 export function AdminDashboard({ initial }: { initial: AdminData }) {
+  const reduceMotion = useReducedMotion();
   const [data, setData] = useState(initial),
     [tab, setTab] = useState<Tab>("overview"),
     [menu, setMenu] = useState(false),
     [loading, setLoading] = useState(false),
-    [error, setError] = useState(""),
+    [error, setError] = useState(initial.error ?? ""),
     [notice, setNotice] = useState(""),
     [editing, setEditing] = useState<Product | null>(null),
     [saving, setSaving] = useState(false),
@@ -123,6 +120,7 @@ export function AdminDashboard({ initial }: { initial: AdminData }) {
   const mounted = useRef(true);
   const requestRef = useRef<AbortController | null>(null);
   const mutationBusy = useRef(false);
+  const mutationRequest = useRef<AbortController | null>(null);
   const epoch = useRef(0);
   const load = useCallback(async () => {
     if (!mounted.current || mutationBusy.current) return;
@@ -157,6 +155,7 @@ export function AdminDashboard({ initial }: { initial: AdminData }) {
       ) {
         dataRef.current = next;
         setData(next);
+        setError(next.error ?? "");
       }
     } catch (e) {
       if (
@@ -182,6 +181,7 @@ export function AdminDashboard({ initial }: { initial: AdminData }) {
     return () => {
       mounted.current = false;
       requestRef.current?.abort();
+      mutationRequest.current?.abort();
       clearInterval(timer);
       document.removeEventListener("visibilitychange", refresh);
     };
@@ -210,6 +210,7 @@ export function AdminDashboard({ initial }: { initial: AdminData }) {
     mutationBusy.current = true;
     epoch.current += 1;
     requestRef.current?.abort();
+    mutationRequest.current = new AbortController();
     setLoading(false);
     return true;
   }
@@ -226,6 +227,7 @@ export function AdminDashboard({ initial }: { initial: AdminData }) {
         : await apiRequest<Product>("/api/admin/products", {
             method: "PUT",
             body: JSON.stringify(valid),
+            signal: mutationRequest.current?.signal,
           });
       if (!mounted.current) return;
       commit((current) => ({
@@ -241,7 +243,8 @@ export function AdminDashboard({ initial }: { initial: AdminData }) {
           : "Product and stock updated.",
       );
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Check the product details.");
+      if (mounted.current && !mutationRequest.current?.signal.aborted)
+        setError(e instanceof Error ? e.message : "Check the product details.");
     } finally {
       mutationBusy.current = false;
       if (mounted.current) setSaving(false);
@@ -258,6 +261,7 @@ export function AdminDashboard({ initial }: { initial: AdminData }) {
         : await apiRequest<SiteSettings>("/api/admin/settings", {
             method: "PUT",
             body: JSON.stringify(valid),
+            signal: mutationRequest.current?.signal,
           });
       if (!mounted.current) return;
       commit((current) => ({ ...current, settings: saved }));
@@ -267,7 +271,8 @@ export function AdminDashboard({ initial }: { initial: AdminData }) {
           : "Website settings updated.",
       );
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Check the website details.");
+      if (mounted.current && !mutationRequest.current?.signal.aborted)
+        setError(e instanceof Error ? e.message : "Check the website details.");
     } finally {
       mutationBusy.current = false;
       if (mounted.current) setSaving(false);
@@ -282,6 +287,7 @@ export function AdminDashboard({ initial }: { initial: AdminData }) {
         await apiRequest("/api/admin/records", {
           method: "PATCH",
           body: JSON.stringify({ type, id, status: value }),
+          signal: mutationRequest.current?.signal,
         });
       if (!mounted.current) return;
       commit((current) =>
@@ -301,7 +307,8 @@ export function AdminDashboard({ initial }: { initial: AdminData }) {
       );
       setNotice("Status updated.");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Status could not be saved.");
+      if (mounted.current && !mutationRequest.current?.signal.aborted)
+        setError(e instanceof Error ? e.message : "Status could not be saved.");
     } finally {
       mutationBusy.current = false;
       if (mounted.current) setSaving(false);
@@ -324,12 +331,14 @@ export function AdminDashboard({ initial }: { initial: AdminData }) {
       const asset = await apiRequest<MediaAsset>("/api/admin/media", {
         method: "POST",
         body: form,
+        signal: mutationRequest.current?.signal,
       });
       if (!mounted.current) return;
       commit((current) => ({ ...current, media: [...current.media, asset] }));
       setNotice("Image added to the library.");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Upload failed.");
+      if (mounted.current && !mutationRequest.current?.signal.aborted)
+        setError(e instanceof Error ? e.message : "Upload failed.");
     } finally {
       mutationBusy.current = false;
       if (mounted.current) setUploadBusy(false);
@@ -344,7 +353,7 @@ export function AdminDashboard({ initial }: { initial: AdminData }) {
         .includes(filter.toLowerCase()),
   );
   const activeTab = tabs.find((t) => t.id === tab)!;
-  const Sidebar = () => (
+  const sidebar = (
     <>
       <Box px="7" pt="10" pb="9">
         <chakra.a href="/" display="flex" gap="3" alignItems="center">
@@ -356,7 +365,7 @@ export function AdminDashboard({ initial }: { initial: AdminData }) {
               Your workspace
             </Text>
             <Text
-              fontSize="8px"
+              fontSize="12px"
               letterSpacing=".15em"
               color="whiteAlpha.700"
               mt="1"
@@ -384,10 +393,11 @@ export function AdminDashboard({ initial }: { initial: AdminData }) {
             bg={tab === id ? "#385346" : "transparent"}
             color={tab === id ? "white" : "whiteAlpha.700"}
             rounded="2px"
-            fontSize="11px"
+            fontSize="13px"
             fontWeight={tab === id ? "600" : "400"}
             _hover={{ bg: "#385346" }}
             onClick={() => choose(id)}
+            aria-current={tab === id ? "page" : undefined}
           >
             <Icon size={17} strokeWidth={1.4} />
             {label}
@@ -403,13 +413,13 @@ export function AdminDashboard({ initial }: { initial: AdminData }) {
       <Box mt="auto" p="7">
         <Box border="1px solid" borderColor="whiteAlpha.200" p="4">
           <Smartphone size={22} strokeWidth={1.2} />
-          <Text fontSize="11px" mt="4">
+          <Text fontSize="13px" mt="4">
             Your business, in your pocket.
           </Text>
           <Button
             variant="plain"
             color="#d7bd88"
-            fontSize="10px"
+            fontSize="12px"
             px="0"
             mt="2"
             onClick={() => setInstall(true)}
@@ -420,10 +430,11 @@ export function AdminDashboard({ initial }: { initial: AdminData }) {
         <chakra.a
           href="/"
           target="_blank"
+          rel="noreferrer"
           display="flex"
           alignItems="center"
           gap="3"
-          fontSize="10px"
+          fontSize="12px"
           mt="7"
           color="whiteAlpha.700"
         >
@@ -433,7 +444,11 @@ export function AdminDashboard({ initial }: { initial: AdminData }) {
     </>
   );
   return (
-    <Flex minH="100dvh" bg="cream">
+    <Flex
+      minH="100dvh"
+      bg="cream"
+      css={{ "& p, & a": { overflowWrap: "anywhere" } }}
+    >
       <Flex
         direction="column"
         w="248px"
@@ -445,9 +460,10 @@ export function AdminDashboard({ initial }: { initial: AdminData }) {
         left="0"
         display={{ base: "none", lg: "flex" }}
       >
-        <Sidebar />
+        {sidebar}
       </Flex>
       <Box
+        as="main"
         flex="1"
         ml={{ base: "0", lg: "248px" }}
         minW="0"
@@ -461,23 +477,29 @@ export function AdminDashboard({ initial }: { initial: AdminData }) {
           h="76px"
           align="center"
           justify="space-between"
+          position="sticky"
+          top="0"
+          zIndex="20"
         >
           <Flex gap="3" align="center">
             <IconButton
               aria-label="Open administration menu"
               display={{ base: "flex", lg: "none" }}
               variant="ghost"
-              size="sm"
+              minW="44px"
+              minH="44px"
               onClick={() => setMenu(true)}
             >
               <Menu size={21} />
             </IconButton>
-            <Text fontSize="11px" color="muted">
-              Workspace{" "}
-              <ChevronRight
-                size={11}
-                style={{ display: "inline", margin: "0 10px" }}
-              />
+            <Text fontSize="12px" color="muted" lineHeight="1.6">
+              <Box as="span" display={{ base: "none", sm: "inline" }}>
+                Workspace{" "}
+                <ChevronRight
+                  size={11}
+                  style={{ display: "inline", margin: "0 10px" }}
+                />
+              </Box>
               <Box as="span" color="forest" fontWeight="600">
                 {activeTab.label}
               </Box>
@@ -488,9 +510,9 @@ export function AdminDashboard({ initial }: { initial: AdminData }) {
               bg={preview ? "#f0e5ce" : "sage"}
               color="forest"
               rounded="full"
-              px="3"
+              px={{ base: "2", sm: "3" }}
               py="1"
-              fontSize="9px"
+              fontSize="12px"
             >
               <Box
                 w="5px"
@@ -499,13 +521,19 @@ export function AdminDashboard({ initial }: { initial: AdminData }) {
                 bg={preview ? "brass" : "green.600"}
                 mr="1"
               />
-              {preview ? "Preview workspace" : "Live workspace"}
+              {preview ? "Preview" : "Live"}
+              <Box as="span" display={{ base: "none", sm: "inline" }}>
+                {" "}
+                workspace
+              </Box>
             </Badge>
             <IconButton
               aria-label="Refresh workspace"
               variant="ghost"
-              size="sm"
+              minW="44px"
+              minH="44px"
               loading={loading}
+              disabled={saving || uploadBusy}
               onClick={() => void load()}
             >
               <RefreshCw size={16} />
@@ -517,7 +545,7 @@ export function AdminDashboard({ initial }: { initial: AdminData }) {
               placeItems="center"
               rounded="full"
               bg="sage"
-              fontSize="10px"
+              fontSize="12px"
             >
               AD
             </Box>
@@ -529,532 +557,567 @@ export function AdminDashboard({ initial }: { initial: AdminData }) {
           maxW="1500px"
           mx="auto"
         >
-          {preview && (
-            <Flex gap="3" bg="#eee8d9" px="4" py="3" mb="8" align="flex-start">
-              <CloudOff size={17} style={{ flexShrink: 0, marginTop: 2 }} />
-              <Box>
-                <Text fontSize="11px" fontWeight="600">
-                  Your private design preview
-                </Text>
-                <Text fontSize="10px" lineHeight="1.8" color="muted" mt="1">
-                  Changes and enquiries are drafts on this device. Connect Neon
-                  to share data across devices. Payments are disabled.
-                </Text>
-              </Box>
-            </Flex>
-          )}
-          <Flex
-            justify="space-between"
-            align="center"
-            gap="5"
-            mb="8"
-            flexWrap="wrap"
+          <motion.div
+            key={tab}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: reduceMotion ? 0 : 0.18 }}
           >
-            <Box>
-              <Text fontSize="9px" color="muted" letterSpacing=".14em" mb="3">
-                {new Intl.DateTimeFormat("en-GB", {
-                  weekday: "long",
-                  day: "numeric",
-                  month: "long",
-                  timeZone: "Europe/London",
-                })
-                  .format(new Date())
-                  .toUpperCase()}
-              </Text>
-              <Editorial as="h1" fontSize={{ base: "32px", md: "42px" }}>
-                {tab === "overview"
-                  ? "Your space, under control."
-                  : activeTab.label + "."}
-              </Editorial>
-            </Box>
-            {tab === "products" ? (
-              <Action
-                arrow={false}
-                h="44px"
-                onClick={() => {
-                  setError("");
-                  setEditing({
-                    id: createId(),
-                    slug: "new-piece-" + Date.now(),
-                    title: "",
-                    description: "",
-                    category: "Living room",
-                    finish: "",
-                    pricePence: null,
-                    stock: null,
-                    reserved: 0,
-                    images: [data.media[0]?.url ?? "/images/sage-living.webp"],
-                    active: false,
-                    featured: false,
-                    version: 0,
-                  });
-                }}
-              >
-                <Plus size={16} />
-                Add product
-              </Action>
-            ) : tab === "overview" ? (
-              <Button
-                h="44px"
-                fontSize="11px"
-                variant="outline"
-                borderColor="line"
-                rounded="0"
-                onClick={() => choose("website")}
-              >
-                Manage website <ArrowUpRight size={14} />
-              </Button>
-            ) : null}
-          </Flex>
-          {error && (
-            <Flex
-              role="alert"
-              bg="red.50"
-              color="red.800"
-              p="4"
-              mb="6"
-              align="flex-start"
-              gap="3"
-            >
-              <TriangleAlert size={17} />
-              <Text flex="1" fontSize="12px" lineHeight="1.8">
-                {error}
-              </Text>
-              <IconButton
-                size="xs"
-                variant="ghost"
-                aria-label="Dismiss error"
-                onClick={() => setError("")}
-              >
-                <X size={14} />
-              </IconButton>
-            </Flex>
-          )}
-          {tab === "overview" && (
-            <>
-              <Grid
-                templateColumns={{ base: "1fr 1fr", xl: "repeat(4,1fr)" }}
-                gap={{ base: "3", md: "5" }}
+            {preview && (
+              <Flex
+                gap="3"
+                bg="#eee8d9"
+                px="4"
+                py="3"
                 mb="8"
+                align="flex-start"
               >
-                {[
-                  {
-                    t: "Products in collection",
-                    v: data.products.filter((p) => p.active).length,
-                    icon: Package,
-                    s: data.products.length + " total products",
-                  },
-                  {
-                    t: "Awaiting stock details",
-                    v: data.products.filter((p) => p.stock === null).length,
-                    icon: TriangleAlert,
-                    s: "Confirm quantities to sell online",
-                  },
-                  {
-                    t: "New enquiries",
-                    v: data.quotes.filter((q) => q.status === "new").length,
-                    icon: Inbox,
-                    s: "Ready for a personal response",
-                  },
-                  {
-                    t: "Paid orders",
-                    v: data.orders.filter((o) =>
-                      [
-                        "paid",
-                        "processing",
-                        "dispatched",
-                        "delivered",
-                      ].includes(o.status),
-                    ).length,
-                    icon: ShoppingBag,
-                    s: preview
-                      ? "No live payments connected"
-                      : "Verified by Stripe",
-                  },
-                ].map(({ t, v, icon: Icon, s }) => (
+                <CloudOff size={17} style={{ flexShrink: 0, marginTop: 2 }} />
+                <Box>
+                  <Text fontSize="13px" fontWeight="600">
+                    Your private design preview
+                  </Text>
+                  <Text fontSize="12px" lineHeight="1.8" color="muted" mt="1">
+                    Changes and enquiries are drafts on this device. Connect
+                    Neon to share data across devices. Payments are disabled.
+                  </Text>
+                </Box>
+              </Flex>
+            )}
+            <Flex
+              justify="space-between"
+              align="center"
+              gap="5"
+              mb="8"
+              flexWrap="wrap"
+            >
+              <Box>
+                <Text
+                  fontSize="11px"
+                  color="muted"
+                  letterSpacing=".14em"
+                  mb="3"
+                >
+                  {new Intl.DateTimeFormat("en-GB", {
+                    weekday: "long",
+                    day: "numeric",
+                    month: "long",
+                    timeZone: "Europe/London",
+                  })
+                    .format(new Date())
+                    .toUpperCase()}
+                </Text>
+                <Editorial as="h1" fontSize={{ base: "38px", md: "50px" }}>
+                  {tab === "overview"
+                    ? "Your space, under control."
+                    : activeTab.label + "."}
+                </Editorial>
+              </Box>
+              {tab === "products" ? (
+                <Action
+                  arrow={false}
+                  h="44px"
+                  onClick={() => {
+                    setError("");
+                    setEditing({
+                      id: createId(),
+                      slug: "new-piece-" + Date.now(),
+                      title: "",
+                      description: "",
+                      category: "Living room",
+                      finish: "",
+                      pricePence: null,
+                      stock: null,
+                      reserved: 0,
+                      images: [
+                        data.media[0]?.url ?? "/images/sage-living.webp",
+                      ],
+                      active: false,
+                      featured: false,
+                      version: 0,
+                    });
+                  }}
+                >
+                  <Plus size={16} />
+                  Add product
+                </Action>
+              ) : tab === "overview" ? (
+                <Button
+                  h="44px"
+                  fontSize="13px"
+                  variant="outline"
+                  borderColor="line"
+                  rounded="0"
+                  onClick={() => choose("website")}
+                >
+                  Manage website <ArrowUpRight size={14} />
+                </Button>
+              ) : null}
+            </Flex>
+            {error && (
+              <Flex
+                role="alert"
+                bg="red.50"
+                color="red.800"
+                p="4"
+                mb="6"
+                align="flex-start"
+                gap="3"
+              >
+                <TriangleAlert size={17} />
+                <Text flex="1" fontSize="12px" lineHeight="1.8">
+                  {error}
+                </Text>
+                <IconButton
+                  size="xs"
+                  variant="ghost"
+                  aria-label="Dismiss error"
+                  onClick={() => setError("")}
+                >
+                  <X size={14} />
+                </IconButton>
+              </Flex>
+            )}
+            {tab === "overview" && (
+              <>
+                <Grid
+                  templateColumns={{ base: "1fr 1fr", xl: "repeat(4,1fr)" }}
+                  gap={{ base: "3", md: "5" }}
+                  mb="8"
+                >
+                  {[
+                    {
+                      t: "Products in collection",
+                      v: data.products.filter((p) => p.active).length,
+                      icon: Package,
+                      s: data.products.length + " total products",
+                    },
+                    {
+                      t: "Awaiting stock details",
+                      v: data.products.filter((p) => p.stock === null).length,
+                      icon: TriangleAlert,
+                      s: "Confirm quantities to sell online",
+                    },
+                    {
+                      t: "New enquiries",
+                      v: data.quotes.filter((q) => q.status === "new").length,
+                      icon: Inbox,
+                      s: "Ready for a personal response",
+                    },
+                    {
+                      t: "Paid orders",
+                      v: data.orders.filter((o) =>
+                        [
+                          "paid",
+                          "processing",
+                          "dispatched",
+                          "delivered",
+                        ].includes(o.status),
+                      ).length,
+                      icon: ShoppingBag,
+                      s: preview
+                        ? "No live payments connected"
+                        : "Verified by Stripe",
+                    },
+                  ].map(({ t, v, icon: Icon, s }) => (
+                    <Box
+                      key={t}
+                      bg="paper"
+                      p={{ base: "4", md: "6" }}
+                      border="1px solid"
+                      borderColor="line"
+                    >
+                      <Flex justify="space-between" align="center">
+                        <Text fontSize="12px" color="muted">
+                          {t}
+                        </Text>
+                        <Icon size={16} strokeWidth={1.2} />
+                      </Flex>
+                      <Text
+                        fontSize="35px"
+                        fontWeight="500"
+                        lineHeight="1"
+                        my="5"
+                      >
+                        {v}
+                      </Text>
+                      <Text color="muted" fontSize="11px" lineHeight="1.7">
+                        {s}
+                      </Text>
+                    </Box>
+                  ))}
+                </Grid>
+                <Grid
+                  templateColumns={{ base: "1fr", xl: "1.4fr 1fr" }}
+                  gap="6"
+                >
                   <Box
-                    key={t}
                     bg="paper"
-                    p={{ base: "4", md: "6" }}
+                    p={{ base: "5", md: "7" }}
                     border="1px solid"
                     borderColor="line"
                   >
-                    <Flex justify="space-between" align="center">
-                      <Text fontSize="10px" color="muted">
-                        {t}
+                    <Flex justify="space-between" align="center" mb="6">
+                      <Text fontSize="13px" fontWeight="600">
+                        Recent enquiries
                       </Text>
-                      <Icon size={16} strokeWidth={1.2} />
+                      <Button
+                        variant="plain"
+                        fontSize="12px"
+                        onClick={() => choose("enquiries")}
+                      >
+                        View all <ArrowRight size={12} />
+                      </Button>
                     </Flex>
-                    <Text
-                      fontSize="35px"
-                      fontWeight="500"
-                      lineHeight="1"
-                      my="5"
-                    >
-                      {v}
-                    </Text>
-                    <Text color="muted" fontSize="9px" lineHeight="1.7">
-                      {s}
-                    </Text>
+                    {data.quotes.length ? (
+                      data.quotes.slice(0, 4).map((q) => (
+                        <Flex
+                          key={q.id}
+                          py="4"
+                          borderTop="1px solid"
+                          borderColor="line"
+                          align="center"
+                          justify="space-between"
+                          gap="3"
+                        >
+                          <Box>
+                            <Text fontSize="12px">{q.name}</Text>
+                            <Text fontSize="12px" color="muted" mt="1">
+                              {q.propertyType} · {q.postcode}
+                            </Text>
+                          </Box>
+                          <Status value={q.status} />
+                        </Flex>
+                      ))
+                    ) : (
+                      <Box py="12" textAlign="center">
+                        <Inbox
+                          size={30}
+                          strokeWidth={1}
+                          style={{ margin: "0 auto" }}
+                        />
+                        <Text fontFamily="editorial" fontSize="25px" mt="5">
+                          Room for new conversations.
+                        </Text>
+                        <Text fontSize="13px" color="muted" mt="3">
+                          Enquiries will appear here when they arrive.
+                        </Text>
+                      </Box>
+                    )}
                   </Box>
-                ))}
-              </Grid>
-              <Grid templateColumns={{ base: "1fr", xl: "1.4fr 1fr" }} gap="6">
+                  <Box bg="forest" color="cream" p={{ base: "6", md: "8" }}>
+                    <Eyebrow color="whiteAlpha.700">
+                      A LITTLE INSPIRATION
+                    </Eyebrow>
+                    <Editorial fontSize="33px">
+                      A beautiful website.
+                      <br />
+                      Made yours.
+                    </Editorial>
+                    <Text
+                      fontSize="13px"
+                      color="whiteAlpha.800"
+                      lineHeight="1.9"
+                      my="6"
+                    >
+                      Update your collection, choose the right imagery and bring
+                      every detail together.
+                    </Text>
+                    <Image
+                      src={data.settings.heroImage}
+                      alt="Current website hero"
+                      h="175px"
+                      w="100%"
+                      objectFit="cover"
+                      objectPosition="center 70%"
+                    />
+                    <Button
+                      onClick={() => choose("website")}
+                      variant="plain"
+                      color="cream"
+                      fontSize="13px"
+                      px="0"
+                      mt="5"
+                    >
+                      Edit your website <ArrowUpRight size={15} />
+                    </Button>
+                  </Box>
+                </Grid>
                 <Box
+                  mt="8"
                   bg="paper"
                   p={{ base: "5", md: "7" }}
                   border="1px solid"
                   borderColor="line"
                 >
-                  <Flex justify="space-between" align="center" mb="6">
+                  <Flex align="center" justify="space-between" gap="3" mb="5">
                     <Text fontSize="13px" fontWeight="600">
-                      Recent enquiries
+                      Ready when you are.
                     </Text>
                     <Button
                       variant="plain"
-                      fontSize="10px"
-                      onClick={() => choose("enquiries")}
+                      fontSize="12px"
+                      onClick={() => choose("settings")}
                     >
-                      View all <ArrowRight size={12} />
+                      Connection settings <ArrowUpRight size={12} />
                     </Button>
                   </Flex>
-                  {data.quotes.length ? (
-                    data.quotes.slice(0, 4).map((q) => (
-                      <Flex
-                        key={q.id}
-                        py="4"
-                        borderTop="1px solid"
-                        borderColor="line"
-                        align="center"
-                        justify="space-between"
-                        gap="3"
-                      >
+                  <Grid
+                    templateColumns={{ base: "1fr", md: "repeat(3,1fr)" }}
+                    gap="5"
+                  >
+                    {[
+                      {
+                        t: "Neon database",
+                        ok: data.integrations.database,
+                        s: "Shared products, stock, orders & enquiries",
+                      },
+                      {
+                        t: "Stripe payments",
+                        ok: data.integrations.stripe,
+                        s: "Secure checkout & verified payment events",
+                      },
+                      {
+                        t: "Mapbox address search",
+                        ok: data.integrations.mapbox,
+                        s: "Property search & location maps",
+                      },
+                    ].map((x) => (
+                      <Flex key={x.t} gap="3" align="flex-start">
+                        <Box mt="1" color={x.ok ? "green.700" : "brass"}>
+                          {x.ok ? <Check size={16} /> : <Cloud size={16} />}
+                        </Box>
                         <Box>
-                          <Text fontSize="12px">{q.name}</Text>
-                          <Text fontSize="10px" color="muted" mt="1">
-                            {q.propertyType} · {q.postcode}
+                          <Text fontSize="13px">{x.t}</Text>
+                          <Text
+                            fontSize="11px"
+                            color="muted"
+                            mt="2"
+                            lineHeight="1.8"
+                          >
+                            {x.s}
+                          </Text>
+                          <Text
+                            fontSize="10px"
+                            letterSpacing=".05em"
+                            color={x.ok ? "green.700" : "brass"}
+                            mt="2"
+                          >
+                            {x.ok ? "CONFIGURED" : "AWAITING CONNECTION"}
                           </Text>
                         </Box>
-                        <Status value={q.status} />
                       </Flex>
+                    ))}
+                  </Grid>
+                </Box>
+              </>
+            )}
+            {tab === "products" && (
+              <>
+                <Flex gap="4" mb="6" flexWrap="wrap">
+                  <Box position="relative" flex="1" minW="170px">
+                    <Input
+                      value={filter}
+                      onChange={(e) => setFilter(e.target.value)}
+                      placeholder="Find a product…"
+                      aria-label="Search inventory"
+                      bg="paper"
+                      rounded="0"
+                      fontSize="12px"
+                      h="44px"
+                    />
+                  </Box>
+                  <NativeSelect.Root w="180px">
+                    <NativeSelect.Field
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value)}
+                      aria-label="Filter inventory category"
+                      bg="paper"
+                      rounded="0"
+                      fontSize="13px"
+                      h="44px"
+                    >
+                      {["All", ...categories].map((c) => (
+                        <option key={c}>{c}</option>
+                      ))}
+                    </NativeSelect.Field>
+                    <NativeSelect.Indicator />
+                  </NativeSelect.Root>
+                </Flex>
+                <Box bg="paper" border="1px solid" borderColor="line">
+                  <Grid
+                    display={{ base: "none", md: "grid" }}
+                    templateColumns="2.3fr 1fr 1fr .9fr 50px"
+                    gap="4"
+                    p="5"
+                    borderBottom="1px solid"
+                    borderColor="line"
+                    color="muted"
+                    fontSize="11px"
+                    letterSpacing=".08em"
+                  >
+                    <Text>PRODUCT</Text>
+                    <Text>PRICE</Text>
+                    <Text>AVAILABLE / RESERVED</Text>
+                    <Text>VISIBILITY</Text>
+                    <Text />
+                  </Grid>
+                  {filtered.length ? (
+                    filtered.map((p) => (
+                      <Grid
+                        key={p.id}
+                        templateColumns={{
+                          base: "1fr auto",
+                          md: "2.3fr 1fr 1fr .9fr 50px",
+                        }}
+                        alignItems="center"
+                        gap="4"
+                        p="5"
+                        borderBottom="1px solid"
+                        borderColor="line"
+                      >
+                        <Flex gap="4" align="center" minW="0">
+                          <Image
+                            src={p.images[0]}
+                            alt={p.title}
+                            w="55px"
+                            h="66px"
+                            objectFit="cover"
+                          />
+                          <Box minW="0">
+                            <Text fontSize="12px" fontWeight="600">
+                              {p.title || "Untitled piece"}
+                            </Text>
+                            <Text fontSize="11px" color="muted" mt="2">
+                              {p.category}
+                            </Text>
+                            <Text
+                              display={{ base: "block", md: "none" }}
+                              mt="2"
+                              fontSize="12px"
+                            >
+                              {p.pricePence === null
+                                ? "Price on request"
+                                : money(p.pricePence)}{" "}
+                              ·{" "}
+                              {p.stock === null
+                                ? "Stock unconfirmed"
+                                : available(p) + " available"}
+                            </Text>
+                          </Box>
+                        </Flex>
+                        <Text
+                          display={{ base: "none", md: "block" }}
+                          fontSize="13px"
+                        >
+                          {p.pricePence === null
+                            ? "On request"
+                            : money(p.pricePence)}
+                        </Text>
+                        <Box display={{ base: "none", md: "block" }}>
+                          <Text
+                            fontSize="13px"
+                            color={
+                              p.stock === null
+                                ? "brass"
+                                : available(p) === 0
+                                  ? "red.700"
+                                  : "forest"
+                            }
+                          >
+                            {p.stock === null
+                              ? "Unconfirmed"
+                              : available(p) + " / " + p.reserved}
+                          </Text>
+                        </Box>
+                        <Box display={{ base: "none", md: "block" }}>
+                          <Status value={p.active ? "published" : "draft"} />
+                        </Box>
+                        <IconButton
+                          aria-label={"Edit " + p.title}
+                          variant="ghost"
+                          minW="44px"
+                          minH="44px"
+                          onClick={() => {
+                            setError("");
+                            setEditing(p);
+                          }}
+                        >
+                          <ChevronRight size={17} />
+                        </IconButton>
+                      </Grid>
                     ))
                   ) : (
-                    <Box py="12" textAlign="center">
-                      <Inbox
-                        size={30}
-                        strokeWidth={1}
-                        style={{ margin: "0 auto" }}
+                    <Box p="10">
+                      <Empty
+                        title="No pieces found"
+                        description="Try another search or add your first product."
                       />
-                      <Text fontFamily="editorial" fontSize="25px" mt="5">
-                        Room for new conversations.
-                      </Text>
-                      <Text fontSize="11px" color="muted" mt="3">
-                        Enquiries will appear here when they arrive.
-                      </Text>
                     </Box>
                   )}
                 </Box>
-                <Box bg="forest" color="cream" p={{ base: "6", md: "8" }}>
-                  <Eyebrow color="whiteAlpha.700">A LITTLE INSPIRATION</Eyebrow>
-                  <Editorial fontSize="33px">
-                    A beautiful website.
-                    <br />
-                    Made yours.
-                  </Editorial>
-                  <Text
-                    fontSize="11px"
-                    color="whiteAlpha.800"
-                    lineHeight="1.9"
-                    my="6"
-                  >
-                    Update your collection, choose the right imagery and bring
-                    every detail together.
-                  </Text>
-                  <Image
-                    src={data.settings.heroImage}
-                    alt="Current website hero"
-                    h="175px"
-                    w="100%"
-                    objectFit="cover"
-                    objectPosition="center 70%"
-                  />
-                  <Button
-                    onClick={() => choose("website")}
-                    variant="plain"
-                    color="cream"
-                    fontSize="11px"
-                    px="0"
-                    mt="5"
-                  >
-                    Edit your website <ArrowUpRight size={15} />
-                  </Button>
-                </Box>
-              </Grid>
-              <Box
-                mt="8"
-                bg="paper"
-                p={{ base: "5", md: "7" }}
-                border="1px solid"
-                borderColor="line"
-              >
-                <Flex align="center" justify="space-between" gap="3" mb="5">
-                  <Text fontSize="13px" fontWeight="600">
-                    Ready when you are.
-                  </Text>
-                  <Button
-                    variant="plain"
-                    fontSize="10px"
-                    onClick={() => choose("settings")}
-                  >
-                    Connection settings <ArrowUpRight size={12} />
-                  </Button>
-                </Flex>
-                <Grid
-                  templateColumns={{ base: "1fr", md: "repeat(3,1fr)" }}
-                  gap="5"
-                >
-                  {[
-                    {
-                      t: "Neon database",
-                      ok: data.integrations.database,
-                      s: "Shared products, stock, orders & enquiries",
-                    },
-                    {
-                      t: "Stripe payments",
-                      ok: data.integrations.stripe,
-                      s: "Secure checkout & verified payment events",
-                    },
-                    {
-                      t: "Mapbox address search",
-                      ok: data.integrations.mapbox,
-                      s: "Property search & location maps",
-                    },
-                  ].map((x) => (
-                    <Flex key={x.t} gap="3" align="flex-start">
-                      <Box mt="1" color={x.ok ? "green.700" : "brass"}>
-                        {x.ok ? <Check size={16} /> : <Cloud size={16} />}
-                      </Box>
-                      <Box>
-                        <Text fontSize="11px">{x.t}</Text>
-                        <Text
-                          fontSize="9px"
-                          color="muted"
-                          mt="2"
-                          lineHeight="1.8"
-                        >
-                          {x.s}
-                        </Text>
-                        <Text
-                          fontSize="8px"
-                          letterSpacing=".05em"
-                          color={x.ok ? "green.700" : "brass"}
-                          mt="2"
-                        >
-                          {x.ok ? "CONFIGURED" : "AWAITING CONNECTION"}
-                        </Text>
-                      </Box>
-                    </Flex>
-                  ))}
-                </Grid>
-              </Box>
-            </>
-          )}
-          {tab === "products" && (
-            <>
-              <Flex gap="4" mb="6" flexWrap="wrap">
-                <Box position="relative" flex="1" minW="170px">
-                  <Input
-                    value={filter}
-                    onChange={(e) => setFilter(e.target.value)}
-                    placeholder="Find a product…"
-                    aria-label="Search inventory"
-                    bg="paper"
-                    rounded="0"
-                    fontSize="12px"
-                    h="44px"
-                  />
-                </Box>
-                <NativeSelect.Root w="180px">
-                  <NativeSelect.Field
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    aria-label="Filter inventory category"
-                    bg="paper"
-                    rounded="0"
-                    fontSize="11px"
-                    h="44px"
-                  >
-                    {["All", ...categories].map((c) => (
-                      <option key={c}>{c}</option>
-                    ))}
-                  </NativeSelect.Field>
-                  <NativeSelect.Indicator />
-                </NativeSelect.Root>
-              </Flex>
-              <Box bg="paper" border="1px solid" borderColor="line">
-                <Grid
-                  display={{ base: "none", md: "grid" }}
-                  templateColumns="2.3fr 1fr 1fr .9fr 50px"
-                  gap="4"
-                  p="5"
-                  borderBottom="1px solid"
-                  borderColor="line"
-                  color="muted"
-                  fontSize="9px"
-                  letterSpacing=".08em"
-                >
-                  <Text>PRODUCT</Text>
-                  <Text>PRICE</Text>
-                  <Text>AVAILABLE / RESERVED</Text>
-                  <Text>VISIBILITY</Text>
-                  <Text />
-                </Grid>
-                {filtered.length ? (
-                  filtered.map((p) => (
-                    <Grid
-                      key={p.id}
-                      templateColumns={{
-                        base: "1fr auto",
-                        md: "2.3fr 1fr 1fr .9fr 50px",
-                      }}
-                      alignItems="center"
-                      gap="4"
-                      p="5"
-                      borderBottom="1px solid"
-                      borderColor="line"
-                    >
-                      <Flex gap="4" align="center" minW="0">
-                        <Image
-                          src={p.images[0]}
-                          alt={p.title}
-                          w="55px"
-                          h="66px"
-                          objectFit="cover"
-                        />
-                        <Box minW="0">
-                          <Text fontSize="12px" fontWeight="600">
-                            {p.title || "Untitled piece"}
-                          </Text>
-                          <Text fontSize="9px" color="muted" mt="2">
-                            {p.category}
-                          </Text>
-                          <Text
-                            display={{ base: "block", md: "none" }}
-                            mt="2"
-                            fontSize="10px"
-                          >
-                            {p.pricePence === null
-                              ? "Price on request"
-                              : money(p.pricePence)}{" "}
-                            ·{" "}
-                            {p.stock === null
-                              ? "Stock unconfirmed"
-                              : available(p) + " available"}
-                          </Text>
-                        </Box>
-                      </Flex>
-                      <Text
-                        display={{ base: "none", md: "block" }}
-                        fontSize="11px"
-                      >
-                        {p.pricePence === null
-                          ? "On request"
-                          : money(p.pricePence)}
-                      </Text>
-                      <Box display={{ base: "none", md: "block" }}>
-                        <Text
-                          fontSize="11px"
-                          color={
-                            p.stock === null
-                              ? "brass"
-                              : available(p) === 0
-                                ? "red.700"
-                                : "forest"
-                          }
-                        >
-                          {p.stock === null
-                            ? "Unconfirmed"
-                            : available(p) + " / " + p.reserved}
-                        </Text>
-                      </Box>
-                      <Box display={{ base: "none", md: "block" }}>
-                        <Status value={p.active ? "published" : "draft"} />
-                      </Box>
-                      <IconButton
-                        aria-label={"Edit " + p.title}
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setError("");
-                          setEditing(p);
-                        }}
-                      >
-                        <ChevronRight size={17} />
-                      </IconButton>
-                    </Grid>
-                  ))
-                ) : (
-                  <Box p="10">
-                    <Empty
-                      title="No pieces found"
-                      description="Try another search or add your first product."
-                    />
-                  </Box>
-                )}
-              </Box>
-              <Text fontSize="10px" color="muted" mt="5">
-                {filtered.length} products · Unknown stock is offered by
-                quotation. Archived products remain in order history.
-              </Text>
-            </>
-          )}
-          {tab === "orders" && (
-            <Records
-              orders={data.orders}
-              onStatus={(id, value) => void status("order", id, value)}
-              busy={saving}
-            />
-          )}
-          {tab === "enquiries" && (
-            <Enquiries
-              quotes={data.quotes}
-              onStatus={(id, value) => void status("quote", id, value)}
-              busy={saving}
-            />
-          )}
-          {tab === "images" && (
-            <MediaLibrary
-              media={data.media}
-              upload={upload}
-              busy={uploadBusy}
-              preview={preview}
-            />
-          )}
-          {tab === "website" && (
-            <WebsiteEditor
-              key={data.settings.version}
-              settings={data.settings}
-              media={data.media}
-              onSave={saveSettings}
-              busy={saving}
-              preview={preview}
-            />
-          )}
-          {tab === "settings" && (
-            <Connections
-              data={data}
-              onInstall={() => setInstall(true)}
-              onReset={() => {
-                if (!preview) return;
-                localStorage.removeItem(PREVIEW_KEY);
-                void load();
-                setNotice("Preview drafts reset.");
-              }}
-            />
-          )}
+                <Text fontSize="12px" color="muted" mt="5">
+                  {filtered.length} products · Unknown stock is offered by
+                  quotation. Archived products remain in order history.
+                </Text>
+              </>
+            )}
+            {tab === "orders" && (
+              <Records
+                orders={data.orders}
+                onStatus={(id, value) => void status("order", id, value)}
+                busy={saving}
+              />
+            )}
+            {tab === "enquiries" && (
+              <Enquiries
+                quotes={data.quotes}
+                onStatus={(id, value) => void status("quote", id, value)}
+                busy={saving}
+              />
+            )}
+            {tab === "images" && (
+              <MediaLibrary
+                media={data.media}
+                upload={upload}
+                busy={uploadBusy}
+                preview={preview}
+              />
+            )}
+            {tab === "website" && (
+              <WebsiteEditor
+                key={data.settings.version}
+                settings={data.settings}
+                media={data.media}
+                onSave={saveSettings}
+                busy={saving}
+                preview={preview}
+              />
+            )}
+            {tab === "settings" && (
+              <Connections
+                data={data}
+                onInstall={() => setInstall(true)}
+                onReset={() => {
+                  if (!preview) return;
+                  try {
+                    localStorage.removeItem(PREVIEW_KEY);
+                    void load();
+                    setNotice("Preview drafts reset.");
+                  } catch {
+                    setError(
+                      "Device drafts could not be reset. Please check your browser storage settings.",
+                    );
+                  }
+                }}
+              />
+            )}
+          </motion.div>
         </Box>
       </Box>
       <Flex
+        as="nav"
+        aria-label="Workspace shortcuts"
         display={{ base: "flex", lg: "none" }}
         bg="paper"
         borderTop="1px solid"
@@ -1087,8 +1150,9 @@ export function AdminDashboard({ initial }: { initial: AdminData }) {
               flexDirection="column"
               gap="2"
               fontWeight={tab === id ? "700" : "400"}
-              fontSize="8px"
+              fontSize="10px"
               onClick={() => choose(id)}
+              aria-current={tab === id ? "page" : undefined}
             >
               <Icon size={19} strokeWidth={tab === id ? 1.8 : 1.2} />
               {label === "Products & stock"
@@ -1107,8 +1171,13 @@ export function AdminDashboard({ initial }: { initial: AdminData }) {
         <Portal>
           <Drawer.Backdrop />
           <Drawer.Positioner>
-            <Drawer.Content bg="forest" color="white" maxW="300px">
-              <Sidebar />
+            <Drawer.Content
+              bg="forest"
+              color="white"
+              maxW="300px"
+              aria-label="Administration navigation"
+            >
+              {sidebar}
               <Drawer.CloseTrigger asChild>
                 <CloseButton
                   color="white"
@@ -1143,13 +1212,19 @@ export function AdminDashboard({ initial }: { initial: AdminData }) {
         <Portal>
           <Drawer.Backdrop />
           <Drawer.Positioner>
-            <Drawer.Content bg="cream" maxH="85dvh">
+            <Drawer.Content
+              bg="cream"
+              maxH="85dvh"
+              aria-label="Use your workspace on iPhone"
+            >
               <Drawer.Body p="8">
                 <Box maxW="550px" mx="auto" py="5">
                   <Smartphone size={32} strokeWidth={1.2} />
-                  <Editorial mt="6" fontSize="36px">
-                    Your business, in your pocket.
-                  </Editorial>
+                  <Drawer.Title asChild>
+                    <Editorial mt="6" fontSize="36px">
+                      Your business, in your pocket.
+                    </Editorial>
+                  </Drawer.Title>
                   <Text mt="6" fontSize="13px" lineHeight="2" color="muted">
                     Open this administration page in Safari on your iPhone. Tap
                     Share, then Add to Home Screen. It opens as a dedicated
@@ -1157,10 +1232,10 @@ export function AdminDashboard({ initial }: { initial: AdminData }) {
                     fingertips.
                   </Text>
                   <Box bg="sage" p="5" mt="6">
-                    <Text fontSize="11px" fontWeight="600">
+                    <Text fontSize="13px" fontWeight="600">
                       Native iOS project included
                     </Text>
-                    <Text fontSize="11px" color="muted" mt="3" lineHeight="1.9">
+                    <Text fontSize="13px" color="muted" mt="3" lineHeight="1.9">
                       The source includes a SwiftUI iOS app using this same
                       protected workspace. Building, signing and TestFlight
                       distribution require Xcode on macOS and your Apple
@@ -1179,27 +1254,44 @@ export function AdminDashboard({ initial }: { initial: AdminData }) {
           </Drawer.Positioner>
         </Portal>
       </Drawer.Root>
-      {notice && (
-        <Box
-          role="status"
-          position="fixed"
-          zIndex="100"
-          bottom={{ base: "95px", lg: "7" }}
-          left="50%"
-          transform="translateX(-50%)"
-          bg="forest"
-          color="white"
-          px="6"
-          py="4"
-          shadow="xl"
-          maxW="calc(100% - 32px)"
-        >
-          <Flex align="center" gap="3">
-            <Check size={16} />
-            <Text fontSize="11px">{notice}</Text>
-          </Flex>
-        </Box>
-      )}
+      <AnimatePresence>
+        {notice && (
+          <motion.div
+            key="workspace-notice"
+            initial={{ opacity: 0, y: reduceMotion ? 0 : 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: reduceMotion ? 0 : 0.16 }}
+            style={{
+              position: "fixed",
+              zIndex: 100,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              pointerEvents: "none",
+            }}
+          >
+            <Box
+              role="status"
+              position="absolute"
+              bottom={{ base: "95px", lg: "7" }}
+              left="50%"
+              transform="translateX(-50%)"
+              bg="forest"
+              color="white"
+              px="6"
+              py="4"
+              shadow="xl"
+              maxW="calc(100% - 32px)"
+            >
+              <Flex align="center" gap="3">
+                <Check size={16} />
+                <Text fontSize="13px">{notice}</Text>
+              </Flex>
+            </Box>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </Flex>
   );
 }
@@ -1217,7 +1309,7 @@ function Status({ value }: { value: string }) {
             : "#eee8d9"
       }
       color="forest"
-      fontSize="8px"
+      fontSize="12px"
       fontWeight="500"
       textTransform="capitalize"
     >
@@ -1291,13 +1383,15 @@ function ProductEditor({
             <Drawer.Header px="7" pt="8">
               <Box>
                 <Eyebrow>THE DETAILS MAKE THE DIFFERENCE</Eyebrow>
-                <Editorial fontSize="33px">
-                  {product.title ? "Edit your piece." : "Add something good."}
-                </Editorial>
+                <Drawer.Title asChild>
+                  <Editorial fontSize="36px">
+                    {product.title ? "Edit your piece." : "Add something good."}
+                  </Editorial>
+                </Drawer.Title>
               </Box>
             </Drawer.Header>
             <Drawer.Body px="7" pb="8">
-              <chakra.form id="product-form" onSubmit={save}>
+              <chakra.form id="product-form" onSubmit={save} aria-busy={busy}>
                 <Flex direction="column" gap="5">
                   <FormField label="Product name" required>
                     <Input
@@ -1317,7 +1411,10 @@ function ProductEditor({
                       maxLength={120}
                     />
                   </FormField>
-                  <Grid templateColumns="1fr 1fr" gap="4">
+                  <Grid
+                    templateColumns={{ base: "1fr", sm: "1fr 1fr" }}
+                    gap="4"
+                  >
                     <FormField label="Collection">
                       <NativeSelect.Root>
                         <NativeSelect.Field
@@ -1354,7 +1451,10 @@ function ProductEditor({
                       maxLength={3000}
                     />
                   </FormField>
-                  <Grid templateColumns="1fr 1fr" gap="4">
+                  <Grid
+                    templateColumns={{ base: "1fr", sm: "1fr 1fr" }}
+                    gap="4"
+                  >
                     <FormField label="Price (£)">
                       <Input
                         inputMode="decimal"
@@ -1372,7 +1472,7 @@ function ProductEditor({
                       />
                     </FormField>
                   </Grid>
-                  <Text fontSize="10px" color="muted" lineHeight="1.8">
+                  <Text fontSize="12px" color="muted" lineHeight="1.8">
                     Leave price or stock blank to offer this piece by quotation.
                     Reserved: {p.reserved}. Stock includes reserved units.
                   </Text>
@@ -1385,10 +1485,16 @@ function ProductEditor({
                     />
                   </FormField>
                   <Box>
-                    <Text fontSize="10px" fontWeight="600" mb="3">
+                    <Text fontSize="12px" fontWeight="600" mb="3">
                       Product photographs · first image is the cover
                     </Text>
-                    <Flex gap="3" mb="4" overflowX="auto">
+                    <Flex
+                      gap="3"
+                      mb="4"
+                      overflowX="auto"
+                      tabIndex={0}
+                      aria-label="Selected product photographs"
+                    >
                       {p.images.map((src, i) => (
                         <Box key={src} position="relative" flexShrink="0">
                           <Image
@@ -1400,7 +1506,8 @@ function ProductEditor({
                           />
                           <Flex mt="1" justify="space-between">
                             <IconButton
-                              size="xs"
+                              minW="44px"
+                              minH="44px"
                               variant="ghost"
                               aria-label={"Move image " + (i + 1) + " earlier"}
                               disabled={i === 0}
@@ -1413,7 +1520,8 @@ function ProductEditor({
                               <ChevronLeft size={13} />
                             </IconButton>
                             <IconButton
-                              size="xs"
+                              minW="44px"
+                              minH="44px"
                               variant="ghost"
                               aria-label={"Remove image " + (i + 1)}
                               onClick={() =>
@@ -1474,12 +1582,12 @@ function ProductEditor({
                         </chakra.button>
                       ))}
                     </Grid>
-                    <Text fontSize="9px" color="muted" mt="3">
+                    <Text fontSize="11px" color="muted" mt="3">
                       Upload more photos in the Image library. Choose up to 12
                       images.
                     </Text>
                   </Box>
-                  <Flex gap="7" py="4">
+                  <Flex gap="7" py="4" flexWrap="wrap">
                     <Toggle
                       label="Published"
                       checked={p.active}
@@ -1561,7 +1669,7 @@ function Toggle({
       <Switch.Control>
         <Switch.Thumb />
       </Switch.Control>
-      <Switch.Label fontSize="11px">{label}</Switch.Label>
+      <Switch.Label fontSize="13px">{label}</Switch.Label>
     </Switch.Root>
   );
 }
@@ -1595,7 +1703,7 @@ function Records({
               <Text fontSize="13px" fontWeight="600">
                 Order {o.id.slice(0, 8).toUpperCase()}
               </Text>
-              <Text fontSize="11px" color="muted" mt="2">
+              <Text fontSize="12px" color="muted" mt="2">
                 {o.email} · {new Date(o.createdAt).toLocaleDateString("en-GB")}
               </Text>
             </Box>
@@ -1606,18 +1714,23 @@ function Records({
           </Flex>
           <Flex direction="column" gap="3" py="5">
             {o.items.map((i) => (
-              <Flex key={i.productId} justify="space-between" fontSize="11px">
-                <Text>
+              <Flex
+                key={i.productId}
+                justify="space-between"
+                fontSize="13px"
+                gap="4"
+              >
+                <Text minW="0">
                   {i.quantity} × {i.title}
                 </Text>
-                <Text>{money(i.pricePence * i.quantity)}</Text>
+                <Text flexShrink="0">{money(i.pricePence * i.quantity)}</Text>
               </Flex>
             ))}
           </Flex>
           {transitions[o.status] && (
             <Button
               size="sm"
-              fontSize="11px"
+              fontSize="13px"
               rounded="0"
               bg="forest"
               color="white"
@@ -1648,14 +1761,15 @@ function Enquiries({
       <Flex gap="2" mb="6" flexWrap="wrap">
         {["all", "new", "contacted", "quoted", "closed"].map((s) => (
           <Button
-            size="sm"
+            minH="44px"
             rounded="0"
             key={s}
             bg={filter === s ? "forest" : "transparent"}
             color={filter === s ? "white" : "forest"}
-            fontSize="11px"
+            fontSize="13px"
             textTransform="capitalize"
             onClick={() => setFilter(s)}
+            aria-pressed={filter === s}
           >
             {s}
           </Button>
@@ -1676,7 +1790,7 @@ function Enquiries({
                   <Text fontFamily="editorial" fontSize="26px">
                     {q.name}
                   </Text>
-                  <Text fontSize="11px" color="muted" mt="2">
+                  <Text fontSize="13px" color="muted" mt="2">
                     {q.propertyType} ·{" "}
                     {q.bedrooms === 0 ? "Studio" : q.bedrooms + " bedrooms"} ·{" "}
                     {q.postcode}
@@ -1692,14 +1806,20 @@ function Enquiries({
               >
                 {q.message}
               </Text>
-              <Flex gap="5" flexWrap="wrap" fontSize="11px">
+              <Flex gap="5" flexWrap="wrap" fontSize="13px">
                 <chakra.a href={"mailto:" + q.email}>{q.email}</chakra.a>
                 <chakra.a href={"tel:" + q.phone.replace(/\s/g, "")}>
                   {q.phone}
                 </chakra.a>
               </Flex>
-              <Flex mt="5" align="center" justify="space-between" gap="4">
-                <Text fontSize="9px" color="muted">
+              <Flex
+                mt="5"
+                align="center"
+                justify="space-between"
+                gap="4"
+                flexWrap="wrap"
+              >
+                <Text fontSize="11px" color="muted">
                   {new Date(q.createdAt).toLocaleDateString("en-GB")} ·{" "}
                   {q.id.slice(0, 8).toUpperCase()}
                 </Text>
@@ -1708,7 +1828,7 @@ function Enquiries({
                     aria-label={"Status for " + q.name}
                     value={q.status}
                     onChange={(e) => onStatus(q.id, e.target.value)}
-                    fontSize="11px"
+                    fontSize="13px"
                     rounded="0"
                   >
                     {["new", "contacted", "quoted", "closed"].map((s) => (
@@ -1762,7 +1882,7 @@ function MediaLibrary({
             <Text fontSize="13px" fontWeight="600">
               Make it yours.
             </Text>
-            <Text fontSize="10px" color="muted" mt="2">
+            <Text fontSize="12px" color="muted" mt="2">
               Upload JPEG, PNG or WebP images, up to 4 MB each. Add a
               description for accessibility.
             </Text>
@@ -1803,7 +1923,7 @@ function MediaLibrary({
           </Action>
         </Grid>
         {preview && (
-          <Text fontSize="10px" mt="4" color="muted">
+          <Text fontSize="12px" mt="4" color="muted">
             Shared uploads require Neon and administrator access. The supplied
             photographs are ready to assign to products and your homepage.
           </Text>
@@ -1827,10 +1947,10 @@ function MediaLibrary({
               objectFit="cover"
             />
             <Box p="4">
-              <Text fontSize="11px" fontWeight="600">
+              <Text fontSize="13px" fontWeight="600">
                 {m.name}
               </Text>
-              <Text fontSize="9px" color="muted" lineHeight="1.8" mt="2">
+              <Text fontSize="11px" color="muted" lineHeight="1.8" mt="2">
                 {m.alt}
               </Text>
             </Box>
@@ -1877,7 +1997,7 @@ function WebsiteEditor({
     });
   }
   return (
-    <chakra.form onSubmit={submit}>
+    <chakra.form onSubmit={submit} aria-busy={busy}>
       <Grid templateColumns={{ base: "1fr", xl: "1.25fr .85fr" }} gap="7">
         <Box
           bg="paper"
@@ -1905,7 +2025,7 @@ function WebsiteEditor({
                 minH="120px"
               />
             </FormField>
-            <Text fontSize="10px" fontWeight="600">
+            <Text fontSize="12px" fontWeight="600">
               Cover photograph
             </Text>
             <Grid templateColumns="repeat(3,1fr)" gap="3">
@@ -1987,7 +2107,7 @@ function WebsiteEditor({
                 onChange={(v) => patch("paymentsEnabled", v)}
                 disabled={preview}
               />
-              <Text fontSize="10px" color="muted" lineHeight="1.8">
+              <Text fontSize="12px" color="muted" lineHeight="1.8">
                 Checkout requires priced products, confirmed stock, a delivery
                 fee and configured Stripe secrets. Live payments remain disabled
                 in preview mode.
@@ -2046,9 +2166,9 @@ function Connections({
     {
       title: "Administrator access",
       description:
-        "ChatGPT sign-in plus an explicit email allowlist protects every live administration action.",
+        "Private administrator sessions and an explicit email allowlist protect every administration action.",
       ok: data.integrations.admin,
-      keys: ["ADMIN_EMAILS"],
+      keys: ["ADMIN_EMAILS", "BETTER_AUTH_SECRET", "BETTER_AUTH_URL"],
       href: "",
     },
   ];
@@ -2070,14 +2190,14 @@ function Connections({
               <Badge
                 bg={x.ok ? "sage" : "#eee8d9"}
                 rounded="full"
-                fontSize="8px"
+                fontSize="10px"
                 px="3"
                 py="1"
               >
                 {x.ok ? "Configured" : "Awaiting connection"}
               </Badge>
             </Flex>
-            <Text fontSize="11px" color="muted" lineHeight="2" my="5">
+            <Text fontSize="13px" color="muted" lineHeight="2" my="5">
               {x.description}
             </Text>
             {x.keys.map((k) => (
@@ -2088,7 +2208,7 @@ function Connections({
                 bg="cream"
                 p="3"
                 mb="2"
-                fontSize="10px"
+                fontSize="12px"
               >
                 {k}
               </Box>
@@ -2102,7 +2222,7 @@ function Connections({
                 alignItems="center"
                 gap="2"
                 mt="4"
-                fontSize="10px"
+                fontSize="12px"
               >
                 Open provider dashboard <ExternalLink size={12} />
               </chakra.a>
@@ -2114,20 +2234,20 @@ function Connections({
         <Text fontSize="13px" fontWeight="600">
           Your keys belong in secure hosting settings.
         </Text>
-        <Text fontSize="11px" color="muted" lineHeight="2" mt="4">
+        <Text fontSize="13px" color="muted" lineHeight="2" mt="4">
           Configure the named variables as secrets, apply the included Neon
           schema, then redeploy to activate the connection. The image bucket is{" "}
           {data.integrations.media ? "configured" : "awaiting connection"}.
           Secrets are never requested or stored in this browser.
         </Text>
-        <Text fontSize="10px" mt="4">
+        <Text fontSize="12px" mt="4">
           Stripe webhook: <Box as="code">/api/stripe/webhook</Box> · Events:
           checkout.session.completed, checkout.session.expired
         </Text>
       </Box>
       <Flex gap="4" mt="7" flexWrap="wrap">
         <Button
-          fontSize="11px"
+          fontSize="13px"
           rounded="0"
           variant="outline"
           borderColor="line"
@@ -2138,7 +2258,7 @@ function Connections({
         </Button>
         {data.mode === "preview" && (
           <Button
-            fontSize="11px"
+            fontSize="13px"
             rounded="0"
             variant="outline"
             borderColor={reset ? "red.300" : "line"}
@@ -2155,7 +2275,7 @@ function Connections({
         )}
       </Flex>
       {reset && (
-        <Text fontSize="10px" color="muted" mt="3">
+        <Text fontSize="12px" color="muted" mt="3">
           This removes local product, website and enquiry drafts. Live data is
           unaffected.
         </Text>

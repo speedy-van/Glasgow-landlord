@@ -4,7 +4,7 @@ import { Wrap, Eyebrow, Editorial, TextLink } from "./design";
 import { Brand } from "./storefront";
 export function InformationPage({ privacy = false }: { privacy?: boolean }) {
   return (
-    <Wrap py="10">
+    <Wrap as="main" py="10">
       <Brand />
       <Box maxW="760px" py="16">
         <Eyebrow>WEBSITE PREVIEW INFORMATION</Eyebrow>

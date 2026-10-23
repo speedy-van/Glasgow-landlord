@@ -1,13 +1,14 @@
 "use client";
 import { createId } from "@/lib/uuid";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import NextImage from "next/image";
+import Link from "next/link";
 import {
   chakra,
   Box,
   Flex,
   Grid,
   Text,
-  Heading,
   Button,
   IconButton,
   Image,
@@ -21,7 +22,6 @@ import {
   Spinner,
 } from "@chakra-ui/react";
 import {
-  ArrowRight,
   ArrowUpRight,
   Search,
   ShoppingBag,
@@ -29,10 +29,7 @@ import {
   Phone,
   Camera,
   Truck,
-  PackageCheck,
-  House,
   KeyRound,
-  Armchair,
   Check,
   Plus,
   Minus,
@@ -41,9 +38,8 @@ import {
   Heart,
   MapPin,
   Layers,
-  SlidersHorizontal,
 } from "lucide-react";
-import { motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Wrap, Eyebrow, Editorial, Action, TextLink, Empty } from "./design";
 import { useCatalog, useCart, apiRequest, RequestError } from "@/lib/client";
 import {
@@ -64,6 +60,8 @@ export type PublicPage =
   | "contact"
   | "cart"
   | "product";
+const SiteLink = chakra(Link);
+const MotionBox = motion.create(Box);
 const nav = [
   ["/shop", "Furniture & appliances"],
   ["/packages", "Furniture packs"],
@@ -81,24 +79,48 @@ export function Storefront({
 }) {
   const { data, loading, refresh } = useCatalog(initial),
     cart = useCart();
+  const reduceMotion = useReducedMotion();
   const [menu, setMenu] = useState(false),
     [search, setSearch] = useState(false),
     [query, setQuery] = useState(""),
     [toast, setToast] = useState("");
+  const searchTrigger = useRef<HTMLButtonElement>(null);
+  const menuTrigger = useRef<HTMLButtonElement>(null);
+  function closeSearch() {
+    setSearch(false);
+    searchTrigger.current?.focus();
+  }
   useEffect(() => {
     if (!toast) return;
     const id = setTimeout(() => setToast(""), 3500);
     return () => clearTimeout(id);
   }, [toast]);
   function add(p: Product) {
-    cart.add(p.id, available(p) ?? 50);
+    const maximum = Math.min(available(p) ?? 50, 50);
+    const existing = cart.lines.find((line) => line.productId === p.id);
+    if (maximum < 1) return;
+    if ((existing?.quantity ?? 0) >= maximum) {
+      setToast("You have reached the available quantity for this piece.");
+      return;
+    }
+    if (!existing && cart.lines.length >= 30) {
+      setToast("Your selection is full. Review your pieces to make room.");
+      return;
+    }
+    cart.add(p.id, maximum);
     setToast(p.title + " added to your selection");
   }
   const product = slug ? data.products.find((p) => p.slug === slug) : undefined;
   return (
     <Box overflowX="clip">
-      <chakra.a
+      <SiteLink
         href="#main"
+        onClick={(event) => {
+          event.preventDefault();
+          const main = document.getElementById("main");
+          main?.focus();
+          main?.scrollIntoView({ behavior: "instant", block: "start" });
+        }}
         position="fixed"
         top="-50px"
         left="4"
@@ -109,12 +131,12 @@ export function Storefront({
         _focus={{ top: "3" }}
       >
         Skip to content
-      </chakra.a>
-      <Box bg="forest" color="white" fontSize="9px" letterSpacing=".07em">
+      </SiteLink>
+      <Box bg="forest" color="white" fontSize="11px" letterSpacing=".07em">
         <Wrap>
           <Flex minH="32px" align="center" justify="space-between">
             <Text>THOUGHTFULLY FURNISHED. PERSONALLY TAKEN CARE OF.</Text>
-            <chakra.a
+            <SiteLink
               href={"tel:" + data.settings.phone.replace(/\s/g, "")}
               display={{ base: "none", sm: "flex" }}
               alignItems="center"
@@ -122,7 +144,7 @@ export function Storefront({
             >
               <Phone size={10} />
               {data.settings.phone}
-            </chakra.a>
+            </SiteLink>
           </Flex>
         </Wrap>
       </Box>
@@ -151,10 +173,11 @@ export function Storefront({
               align="center"
             >
               {nav.map(([href, label]) => (
-                <chakra.a
+                <SiteLink
                   key={href}
                   href={href}
-                  fontSize="11px"
+                  aria-current={"/" + page === href ? "page" : undefined}
+                  fontSize="13px"
                   fontWeight="600"
                   py="2"
                   borderBottom="1px solid"
@@ -162,7 +185,7 @@ export function Storefront({
                   _hover={{ borderColor: "forest" }}
                 >
                   {label}
-                </chakra.a>
+                </SiteLink>
               ))}
             </Flex>
             <Flex gap={{ base: "1", md: "4" }} align="center">
@@ -171,17 +194,26 @@ export function Storefront({
               </Box>
               <IconButton
                 aria-label="Search furniture"
+                ref={searchTrigger}
+                aria-expanded={search}
+                aria-controls="site-search"
+                minW="44px"
+                minH="44px"
                 variant="ghost"
                 size="sm"
                 onClick={() => setSearch(!search)}
               >
                 <Search size={19} />
               </IconButton>
-              <chakra.a
+              <SiteLink
                 href="/cart"
                 position="relative"
                 p="2"
                 aria-label={"Your selection, " + cart.count + " items"}
+                minW="44px"
+                minH="44px"
+                display="grid"
+                placeItems="center"
               >
                 <ShoppingBag size={19} />
                 {cart.count > 0 && (
@@ -194,16 +226,21 @@ export function Storefront({
                     bg="brass"
                     color="white"
                     rounded="full"
-                    fontSize="9px"
+                    fontSize="11px"
                     textAlign="center"
                     lineHeight="16px"
                   >
                     {cart.count}
                   </Box>
                 )}
-              </chakra.a>
+              </SiteLink>
               <IconButton
                 aria-label="Open navigation"
+                ref={menuTrigger}
+                aria-expanded={menu}
+                aria-controls="mobile-navigation"
+                minW="44px"
+                minH="44px"
                 display={{ base: "flex", lg: "none" }}
                 size="sm"
                 variant="ghost"
@@ -214,50 +251,71 @@ export function Storefront({
             </Flex>
           </Flex>
         </Wrap>
-        {search && (
-          <Wrap py="5" borderTop="1px solid" borderColor="line">
-            <chakra.form action="/shop">
-              <Flex gap="3">
-                <Input
-                  autoFocus
-                  name="q"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="What are you looking for?"
-                  aria-label="Search products"
-                  bg="paper"
-                  borderRadius="0"
-                />
-                <Button
-                  type="submit"
-                  bg="forest"
-                  color="white"
-                  borderRadius="0"
-                >
-                  Search
-                </Button>
-                <IconButton
-                  aria-label="Close search"
-                  variant="ghost"
-                  onClick={() => setSearch(false)}
-                >
-                  <X size={18} />
-                </IconButton>
-              </Flex>
-            </chakra.form>
-          </Wrap>
-        )}
+        <AnimatePresence initial={false}>
+          {search && (
+            <motion.div
+              key="search"
+              initial={{ opacity: 0, y: reduceMotion ? 0 : -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.16 }}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") closeSearch();
+              }}
+            >
+              <Wrap
+                id="site-search"
+                py="5"
+                borderTop="1px solid"
+                borderColor="line"
+              >
+                <chakra.form action="/shop">
+                  <Flex gap="3">
+                    <Input
+                      autoFocus
+                      name="q"
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder="What are you looking for?"
+                      aria-label="Search products"
+                      bg="paper"
+                      borderRadius="0"
+                    />
+                    <Button
+                      type="submit"
+                      bg="forest"
+                      color="white"
+                      borderRadius="0"
+                    >
+                      Search
+                    </Button>
+                    <IconButton
+                      aria-label="Close search"
+                      variant="ghost"
+                      onClick={closeSearch}
+                    >
+                      <X size={18} />
+                    </IconButton>
+                  </Flex>
+                </chakra.form>
+              </Wrap>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </Box>
       <Drawer.Root
+        ids={{ content: "mobile-navigation" }}
         open={menu}
         onOpenChange={(e) => setMenu(e.open)}
         placement="end"
+        finalFocusEl={() => menuTrigger.current}
       >
         <Portal>
           <Drawer.Backdrop />
           <Drawer.Positioner>
             <Drawer.Content bg="cream">
               <Drawer.Header>
+                <Drawer.Title className="sr-only">Navigation</Drawer.Title>
                 <Brand />
               </Drawer.Header>
               <Drawer.Body>
@@ -267,14 +325,16 @@ export function Storefront({
                     ["/contact", "Get in touch"],
                     ["/admin", "Administration"],
                   ].map(([href, label]) => (
-                    <chakra.a
+                    <SiteLink
                       key={href}
                       href={href}
+                      onClick={() => setMenu(false)}
+                      aria-current={"/" + page === href ? "page" : undefined}
                       fontFamily="editorial"
                       fontSize="28px"
                     >
                       {label}
-                    </chakra.a>
+                    </SiteLink>
                   ))}
                 </Flex>
                 <Text color="muted" fontSize="sm">
@@ -317,7 +377,14 @@ export function Storefront({
           }).replace(/</g, "\\u003c"),
         }}
       />
-      <Box as="main" id="main">
+      <MotionBox
+        as="main"
+        id="main"
+        tabIndex={-1}
+        initial={{ opacity: 0.85 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.25 }}
+      >
         {page === "home" && <Home data={data} onAdd={add} />}
         {page === "shop" && <Shop data={data} onAdd={add} />}
         {page === "packages" && <Packages />}
@@ -345,95 +412,91 @@ export function Storefront({
               </Empty>
             </Wrap>
           ))}
-      </Box>
+      </MotionBox>
       <Footer data={data} />
-      {toast && (
-        <Box
-          position="fixed"
-          bottom={{ base: "6", md: "8" }}
-          left="50%"
-          transform="translateX(-50%)"
-          zIndex="50"
-          maxW="calc(100% - 32px)"
-          bg="forest"
-          color="white"
-          px="6"
-          py="4"
-          shadow="xl"
-          role="status"
-        >
-          <Flex align="center" gap="3">
-            <Check size={16} />
-            <Text fontSize="12px">{toast}</Text>
-            <chakra.a
-              href="/cart"
-              fontSize="11px"
-              textDecoration="underline"
-              whiteSpace="nowrap"
-            >
-              View selection
-            </chakra.a>
-          </Flex>
-        </Box>
-      )}
+      <AnimatePresence initial={false}>
+        {toast && (
+          <MotionBox
+            key="selection-toast"
+            initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: reduceMotion ? 0 : 8 }}
+            transition={{ duration: 0.2 }}
+            position="fixed"
+            bottom={{ base: "6", md: "8" }}
+            left="4"
+            right="4"
+            mx="auto"
+            zIndex="50"
+            maxW="540px"
+            bg="forest"
+            color="white"
+            px="6"
+            py="4"
+            shadow="xl"
+            role="status"
+          >
+            <Flex align="center" gap="3" flexWrap="wrap">
+              <Check size={16} />
+              <Text fontSize="14px">{toast}</Text>
+              <SiteLink
+                href="/cart"
+                fontSize="13px"
+                textDecoration="underline"
+                whiteSpace="nowrap"
+              >
+                View selection
+              </SiteLink>
+            </Flex>
+          </MotionBox>
+        )}
+      </AnimatePresence>
     </Box>
   );
 }
 export function Brand() {
   return (
-    <chakra.a
+    <SiteLink
       href="/"
       display="flex"
       alignItems="center"
       gap="3"
       flexShrink="0"
-      aria-label="Home"
+      aria-label="Landlord Solutions home"
     >
-      <Box color="brass" position="relative">
-        <House size={37} strokeWidth={1.25} />
-        <KeyRound
-          size={17}
-          strokeWidth={1.5}
-          style={{
-            position: "absolute",
-            left: 10,
-            top: 15,
-            background: "#f7f5ef",
-          }}
-        />
-      </Box>
+      <Image src="/favicon.svg" alt="" width="44px" height="44px" />
       <Box>
         <Text
           fontSize={{ base: "12px", md: "14px" }}
           fontWeight="800"
-          letterSpacing=".055em"
+          letterSpacing=".07em"
           lineHeight="1.1"
         >
           LANDLORD
         </Text>
         <Text
           fontSize={{ base: "10px", md: "11px" }}
-          letterSpacing=".19em"
+          letterSpacing=".2em"
           fontWeight="500"
           mt="1"
         >
           SOLUTIONS
         </Text>
-        <Text fontSize="7px" letterSpacing=".24em" color="muted" mt="1">
-          GLASGOW & BEYOND
+        <Text fontSize="9px" letterSpacing=".15em" color="muted" mt="1">
+          GLASGOW &amp; BEYOND
         </Text>
       </Box>
-    </chakra.a>
+    </SiteLink>
   );
 }
 function Reveal({ children }: { children: React.ReactNode }) {
   const reduced = useReducedMotion();
   return (
     <motion.div
-      initial={reduced ? false : { opacity: 0, y: 16 }}
+      initial={false}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.12 }}
-      transition={{ duration: 0.55 }}
+      transition={{ duration: reduced ? 0 : 0.4 }}
     >
       {children}
     </motion.div>
@@ -446,169 +509,153 @@ function Home({
   data: Bootstrap;
   onAdd: (p: Product) => void;
 }) {
+  const favourites = data.products
+    .filter((p) => p.active && p.featured)
+    .slice(0, 3);
   return (
     <>
-      <Grid
-        templateColumns={{ base: "1fr", md: "1fr 1.05fr" }}
-        maxW="1600px"
-        mx="auto"
-        minH={{ md: "655px" }}
-      >
-        <Flex
-          direction="column"
-          justify="center"
-          align="flex-start"
-          px={{ base: "6", md: "10", xl: "64px" }}
-          pt={{ base: "10", md: "20" }}
-          pb={{ base: "10", md: "20" }}
-          position="relative"
+      <Wrap pt={{ base: "6", md: "10" }} pb={{ base: "10", md: "14" }}>
+        <Grid
+          templateColumns={{ base: "1fr", lg: ".93fr 1.07fr" }}
+          gap={{ base: "6", lg: "12" }}
+          alignItems="center"
         >
-          <Eyebrow>
+          <Box py={{ base: "5", lg: "10" }}>
+            <Eyebrow>
+              <Box
+                as="span"
+                display="inline-block"
+                w="24px"
+                h="1px"
+                bg="brass"
+                verticalAlign="middle"
+                mr="3"
+              />
+              GLASGOW, WITH A PERSONAL TOUCH
+            </Eyebrow>
             <Box
-              as="span"
-              display="inline-block"
-              w="19px"
-              h="1px"
-              bg="brass"
-              verticalAlign="middle"
-              mr="3"
-            />
-            GOOD SPACES. GOOD PEOPLE.
-          </Eyebrow>
-          <Box
-            as="h1"
-            fontFamily="editorial"
-            fontSize={{ base: "46px", sm: "66px", md: "64px", xl: "70px" }}
-            lineHeight="1.03"
-            letterSpacing="-.045em"
-            whiteSpace="pre-line"
-            maxW="570px"
-          >
-            {data.settings.heroTitle ===
-            "Beautiful spaces.\nWithout the hard work." ? (
-              <>
-                Beautiful spaces.
-                <br />
-                <Box as="span" fontStyle="italic" color="brass">
-                  Without the
-                </Box>
-                <br />
-                hard work.
-              </>
-            ) : (
-              data.settings.heroTitle
-            )}
-          </Box>
-          <Text
-            mt={{ base: "6", md: "7" }}
-            color="muted"
-            fontSize={{ base: "13px", md: "14px" }}
-            lineHeight="1.95"
-            maxW="370px"
-          >
-            {data.settings.heroSubtitle}
-          </Text>
-          <Flex
-            gap="5"
-            mt={{ base: "7", md: "9" }}
-            align="center"
-            flexWrap="wrap"
-          >
-            <Action asChild>
-              <a href="/shop">Explore the collection</a>
-            </Action>
-            <chakra.a
-              href="/packages"
-              fontSize="11px"
-              fontWeight="600"
-              display="flex"
-              gap="2"
-              alignItems="center"
+              as="h1"
+              fontFamily="editorial"
+              fontWeight="400"
+              fontSize={{ base: "52px", sm: "74px", lg: "79px", xl: "88px" }}
+              lineHeight=".98"
+              letterSpacing="-.035em"
+              whiteSpace="pre-line"
+              maxW="580px"
             >
-              Furnish a property <ArrowRight size={14} />
-            </chakra.a>
-          </Flex>
-          <Flex
-            display={{ base: "none", md: "flex" }}
-            mt={{ base: "10", md: "14" }}
-            gap="3"
-            align="center"
-          >
-            <Box
-              w="30px"
-              h="30px"
-              border="1px solid"
-              borderColor="line"
-              rounded="full"
-              display="grid"
-              placeItems="center"
-            >
-              <KeyRound size={13} strokeWidth={1.3} />
+              {data.settings.heroTitle ===
+              "Beautiful spaces.\nWithout the hard work." ? (
+                <>
+                  Beautiful spaces.
+                  <br />
+                  <Box as="span" color="brass" fontStyle="italic">
+                    Without the
+                  </Box>
+                  <br />
+                  hard work.
+                </>
+              ) : (
+                data.settings.heroTitle
+              )}
             </Box>
-            <Text fontSize="10px" color="muted">
-              For landlords, hosts & people making a home.
+            <Text
+              color="muted"
+              fontSize="15px"
+              lineHeight="1.9"
+              maxW="390px"
+              mt="7"
+            >
+              {data.settings.heroSubtitle}
             </Text>
-          </Flex>
-        </Flex>
-        <Box
-          position="relative"
-          minH={{ base: "460px", md: "655px" }}
-          bg="sage"
-          overflow="hidden"
-        >
-          <Image
-            src={data.settings.heroImage}
-            alt="Warm neutral corner sofa in a thoughtfully furnished sage green living room"
-            w="100%"
-            h="100%"
-            position="absolute"
-            objectFit="cover"
-            objectPosition="center 55%"
-            fetchPriority="high"
-          />
-          <Box position="absolute" top="6" right="6" bg="cream" px="4" py="2">
-            <Text fontSize="8px" letterSpacing=".16em">
-              SPACES THAT FEEL LIKE HOME
-            </Text>
-          </Box>
-          <chakra.a
-            href="/spaces"
-            position="absolute"
-            bottom={{ base: "6", md: "8" }}
-            left={{ base: "6", md: "8" }}
-            right={{ base: "6", md: "8" }}
-            p={{ base: "5", md: "6" }}
-            bg="cream"
-            display="flex"
-            alignItems="center"
-            justifyContent="space-between"
-          >
-            <Box>
-              <Text fontSize="9px" color="muted" letterSpacing=".13em" mb="2">
-                THE FINISHING TOUCHES, TAKEN CARE OF.
+            <Flex
+              gap={{ base: "3", md: "5" }}
+              mt="8"
+              align="center"
+              flexWrap="wrap"
+            >
+              <Action asChild>
+                <Link href="/shop">Explore the collection</Link>
+              </Action>
+              <TextLink href="/packages">Furnish a property</TextLink>
+            </Flex>
+            <Flex
+              display={{ base: "none", lg: "flex" }}
+              gap="4"
+              mt={{ base: "8", lg: "14" }}
+              pt="6"
+              borderTop="1px solid"
+              borderColor="line"
+              maxW="390px"
+              align="center"
+            >
+              <KeyRound size={24} strokeWidth={1.2} color="#846343" />
+              <Text fontSize="14px" color="muted">
+                For landlords, hosts &amp; people
+                <br />
+                making a place their own.
               </Text>
-              <Text
-                fontFamily="editorial"
-                fontSize={{ base: "23px", md: "27px" }}
+            </Flex>
+          </Box>
+          <Box position="relative">
+            <Box
+              position="relative"
+              h={{ base: "430px", sm: "540px", lg: "626px" }}
+              overflow="hidden"
+              bg="sage"
+            >
+              <NextImage
+                src={data.settings.heroImage}
+                alt="Neutral corner sofa, sage walls and a glass coffee table in a furnished living room"
+                fill
+                loading="eager"
+                fetchPriority="high"
+                sizes="(max-width: 1023px) 100vw, 52vw"
+                style={{ objectFit: "cover", objectPosition: "center 63%" }}
+              />
+              <Box
+                position="absolute"
+                top="5"
+                right="5"
+                bg="cream"
+                px="4"
+                py="2"
               >
-                From a single piece to a complete home.
-              </Text>
+                <Text fontSize="12px" letterSpacing=".14em">
+                  THE ART OF FEELING AT HOME
+                </Text>
+              </Box>
             </Box>
-            <Box
-              w="40px"
-              h="40px"
-              flexShrink="0"
-              rounded="full"
+            <SiteLink
+              href="/spaces"
+              display="flex"
+              justifyContent="space-between"
+              alignItems="center"
+              gap="5"
+              bg="paper"
               border="1px solid"
               borderColor="line"
-              display="grid"
-              placeItems="center"
+              px="6"
+              py="5"
+              className="image-caption"
             >
-              <ArrowUpRight size={18} />
-            </Box>
-          </chakra.a>
-        </Box>
-      </Grid>
+              <Box>
+                <Text fontSize="12px" color="muted" letterSpacing=".13em">
+                  A LITTLE INSPIRATION
+                </Text>
+                <Text
+                  fontFamily="editorial"
+                  fontSize="26px"
+                  lineHeight="1.2"
+                  mt="1"
+                >
+                  Thoughtfully brought together.
+                </Text>
+              </Box>
+              <ArrowUpRight size={22} strokeWidth={1.3} />
+            </SiteLink>
+          </Box>
+        </Grid>
+      </Wrap>
       <TrustStrip />
       <Wrap py={{ base: "16", md: "24" }}>
         <Reveal>
@@ -620,44 +667,44 @@ function Home({
             flexWrap="wrap"
           >
             <Box>
-              <Eyebrow>A PLACE FOR EVERYTHING</Eyebrow>
+              <Eyebrow>A PLACE FOR EVERYDAY LIFE</Eyebrow>
               <Editorial>
-                Make room for
+                Good pieces.
                 <br />
                 <Box as="span" fontStyle="italic">
-                  better living.
+                  Better spaces.
                 </Box>
               </Editorial>
             </Box>
-            <Box maxW="310px">
-              <Text color="muted" fontSize="13px" lineHeight="1.9" mb="3">
-                From the first sofa to the last bedside lamp. Find pieces that
-                work beautifully together.
+            <Box maxW="320px">
+              <Text color="muted" fontSize="14px" lineHeight="1.9" mb="3">
+                Warm textures. Considered details. Discover the pieces that make
+                a room feel like yours.
               </Text>
-              <TextLink href="/shop">Discover all collections</TextLink>
+              <TextLink href="/shop">Discover the collection</TextLink>
             </Box>
           </Flex>
         </Reveal>
         <Grid
-          templateColumns={{ base: "1fr 1fr", md: "1.15fr 1.15fr .9fr" }}
-          gap={{ base: "4", md: "6" }}
+          templateColumns={{ base: "1fr 1fr", md: "1.1fr 1.1fr .85fr" }}
+          gap={{ base: "3", md: "5" }}
         >
           <CollectionCard
             href="/shop?category=Living+room"
             image="/images/soft-living.webp"
             title="Living room"
-            subtitle="For everyday moments"
-            h={{ base: "280px", md: "440px" }}
+            subtitle="Room to relax"
+            h={{ base: "290px", md: "440px" }}
           />
           <CollectionCard
             href="/shop?category=Bedroom"
             image="/images/calm-bedroom.webp"
             title="Bedroom"
-            subtitle="A softer place to land"
-            h={{ base: "280px", md: "440px" }}
+            subtitle="Rest comes naturally"
+            h={{ base: "290px", md: "440px" }}
           />
           <Grid
-            gap={{ base: "4", md: "6" }}
+            gap={{ base: "3", md: "5" }}
             gridColumn={{ base: "1 / -1", md: "auto" }}
             templateColumns={{ base: "1fr 1fr", md: "1fr" }}
           >
@@ -666,146 +713,142 @@ function Home({
               image="/images/oak-dining.webp"
               title="Dining"
               subtitle="Come together"
-              h={{ base: "225px", md: "208px" }}
+              h={{ base: "220px", md: "210px" }}
             />
-            <chakra.a
+            <SiteLink
               href="/shop?category=Appliances"
               bg="forest"
               color="cream"
-              p={{ base: "5", md: "7" }}
-              minH={{ base: "225px", md: "208px" }}
+              p={{ base: "5", md: "6" }}
+              minH={{ base: "220px", md: "210px" }}
               display="flex"
               flexDirection="column"
               justifyContent="space-between"
-              position="relative"
               _hover={{ bg: "forestDark" }}
             >
-              <WashingMachine size={38} strokeWidth={0.9} />
+              <WashingMachine size={36} strokeWidth={1} />
               <Box>
-                <Text
-                  fontSize="8px"
-                  letterSpacing=".12em"
-                  color="whiteAlpha.700"
-                  mb="2"
-                >
+                <Text fontSize="12px" letterSpacing=".1em" mb="2">
                   EVERYDAY ESSENTIALS
                 </Text>
                 <Flex justify="space-between" align="center">
                   <Text
                     fontFamily="editorial"
-                    fontSize={{ base: "22px", md: "26px" }}
+                    fontSize={{ base: "25px", md: "28px" }}
                   >
                     Appliances
                   </Text>
-                  <ArrowUpRight size={17} />
+                  <ArrowUpRight size={18} />
                 </Flex>
               </Box>
-            </chakra.a>
+            </SiteLink>
           </Grid>
         </Grid>
       </Wrap>
+      {favourites.length > 0 && (
+        <Box bg="paper" borderY="1px solid" borderColor="line">
+          <Wrap py={{ base: "14", md: "20" }}>
+            <Flex
+              justify="space-between"
+              align="end"
+              gap="5"
+              mb="10"
+              flexWrap="wrap"
+            >
+              <Box>
+                <Eyebrow>FROM OUR COLLECTION</Eyebrow>
+                <Editorial>A few considered favourites.</Editorial>
+              </Box>
+              <TextLink href="/shop">View all pieces</TextLink>
+            </Flex>
+            <Grid
+              templateColumns={{
+                base: "1fr",
+                sm: "1fr 1fr",
+                md: "repeat(3,1fr)",
+              }}
+              gap={{ base: "8", md: "7" }}
+            >
+              {favourites.map((p) => (
+                <ProductCard key={p.id} p={p} onAdd={onAdd} />
+              ))}
+            </Grid>
+          </Wrap>
+        </Box>
+      )}
       <Box bg="sage">
-        <Wrap py={{ base: "14", md: "20" }}>
+        <Wrap py={{ base: "14", md: "24" }}>
           <Grid
             templateColumns={{ base: "1fr", md: "1fr 1fr" }}
-            gap={{ base: "10", md: "20" }}
+            gap={{ base: "10", md: "16", xl: "24" }}
             alignItems="center"
           >
             <Box position="relative">
               <Image
                 src="/images/calm-bedroom.webp"
-                alt="A complete bedroom furnishing scheme in warm neutral tones"
-                h={{ base: "380px", md: "520px" }}
+                alt="A complete bedroom with an upholstered bed and coordinated oak storage"
+                h={{ base: "400px", md: "560px" }}
                 w="100%"
                 objectFit="cover"
                 loading="lazy"
               />
               <Box
                 position="absolute"
-                bottom="-5"
-                right={{ base: "4", md: "-6" }}
-                bg="forest"
-                color="cream"
-                py="6"
-                px="7"
+                bottom="5"
+                left="5"
+                bg="cream"
+                px="5"
+                py="3"
               >
-                <House size={26} strokeWidth={1} />
-                <Text fontFamily="editorial" fontSize="24px" mt="3">
-                  One property.
-                  <br />
-                  Every detail.
+                <Text fontSize="13px" letterSpacing=".08em">
+                  ONE PROPERTY. EVERY DETAIL.
                 </Text>
               </Box>
             </Box>
             <Reveal>
-              <Box py="7">
-                <Eyebrow>MADE FOR LANDLORDS & HOSTS</Eyebrow>
-                <Editorial>
-                  Your property.
-                  <br />
-                  Our complete
-                  <br />
-                  <Box as="span" fontStyle="italic">
-                    attention.
-                  </Box>
-                </Editorial>
-                <Text
-                  color="muted"
-                  fontSize="13px"
-                  lineHeight="2"
-                  my="7"
-                  maxW="370px"
-                >
-                  A full home to furnish? A rental to refresh? Bring everything
-                  together with a tailored furniture pack, without the endless
-                  shopping lists.
-                </Text>
-                <Flex direction="column" gap="4" mb="9">
-                  {[
-                    "Furniture & appliance supply",
-                    "Serviced accommodation set-ups",
-                    "Social housing furniture packs",
-                  ].map((t) => (
-                    <Flex key={t} gap="3" align="center">
-                      <Check size={15} strokeWidth={1.5} />
-                      <Text fontSize="12px">{t}</Text>
-                    </Flex>
-                  ))}
-                </Flex>
-                <Action asChild>
-                  <a href="/packages">Find your furnishing pack</a>
-                </Action>
-              </Box>
+              <Eyebrow>FURNISHING, WITHOUT THE LONG LIST</Eyebrow>
+              <Editorial>
+                Your property.
+                <br />
+                Our complete
+                <br />
+                <Box as="span" fontStyle="italic" color="brass">
+                  attention.
+                </Box>
+              </Editorial>
+              <Text
+                color="muted"
+                fontSize="14px"
+                lineHeight="1.95"
+                my="7"
+                maxW="380px"
+              >
+                A full home to furnish? A rental to refresh? Bring it all
+                together with a furniture pack shaped around your space, your
+                plans and your budget.
+              </Text>
+              <Flex direction="column" gap="4" mb="8">
+                {[
+                  "Rental property essentials",
+                  "Serviced accommodation",
+                  "Social housing furniture packs",
+                ].map((t) => (
+                  <Flex key={t} gap="3" align="center">
+                    <Check size={16} strokeWidth={1.4} />
+                    <Text fontSize="15px">{t}</Text>
+                  </Flex>
+                ))}
+              </Flex>
+              <Action asChild>
+                <Link href="/packages">Find your furnishing pack</Link>
+              </Action>
+              <Text fontSize="13px" color="muted" mt="4">
+                Individually quoted. Every detail agreed with you.
+              </Text>
             </Reveal>
           </Grid>
         </Wrap>
       </Box>
-      <Wrap py={{ base: "16", md: "24" }}>
-        <Flex
-          justify="space-between"
-          align="end"
-          gap="5"
-          mb="10"
-          flexWrap="wrap"
-        >
-          <Box>
-            <Eyebrow>CHOSEN WITH CARE</Eyebrow>
-            <Editorial>Meet a few favourites.</Editorial>
-          </Box>
-          <TextLink href="/shop">View the collection</TextLink>
-        </Flex>
-        <Grid
-          templateColumns={{ base: "1fr 1fr", md: "repeat(3,1fr)" }}
-          gap={{ base: "4", md: "7" }}
-        >
-          {data.products
-            .filter((p) => p.featured)
-            .slice(0, 3)
-            .map((p) => (
-              <ProductCard key={p.id} p={p} onAdd={onAdd} />
-            ))}
-        </Grid>
-      </Wrap>
       <Process />
       <Wrap py={{ base: "16", md: "24" }}>
         <Flex
@@ -816,57 +859,60 @@ function Home({
           flexWrap="wrap"
         >
           <Box>
-            <Eyebrow>A LITTLE INSPIRATION</Eyebrow>
+            <Eyebrow>THE FEELING OF HOME</Eyebrow>
             <Editorial>
-              Real spaces.
+              Find your
               <br />
               <Box as="span" fontStyle="italic">
-                Thoughtfully finished.
+                kind of calm.
               </Box>
             </Editorial>
           </Box>
-          <TextLink href="/spaces">Take a closer look</TextLink>
+          <TextLink href="/spaces">Explore our spaces</TextLink>
         </Flex>
-        <Grid templateColumns={{ base: "1fr", md: "1.25fr .75fr" }} gap="6">
-          <chakra.a href="/spaces" position="relative" overflow="hidden">
+        <Grid
+          templateColumns={{ base: "1fr", md: "1.25fr .75fr" }}
+          gap={{ base: "7", md: "10" }}
+          alignItems="start"
+        >
+          <SiteLink href="/spaces" className="editorial-photo">
             <Image
               src="/images/sage-living.webp"
-              alt="Sage living room with neutral seating and glass coffee table"
-              h={{ base: "400px", md: "530px" }}
+              alt="Sage living room with a neutral corner sofa and glass coffee table"
+              h={{ base: "430px", md: "600px" }}
               w="100%"
               objectFit="cover"
               objectPosition="center 65%"
               loading="lazy"
             />
-            <Box
-              position="absolute"
-              bottom="6"
-              left="6"
-              bg="cream"
-              px="5"
-              py="3"
-            >
-              <Text fontSize="10px">Warm neutrals. A fresh perspective.</Text>
-            </Box>
-          </chakra.a>
-          <chakra.a href="/spaces">
+            <Flex justify="space-between" mt="4" gap="4">
+              <Text fontSize="14px">Soft textures. A fresh perspective.</Text>
+              <ArrowUpRight size={18} />
+            </Flex>
+          </SiteLink>
+          <SiteLink
+            href="/spaces"
+            pt={{ md: "20" }}
+            className="editorial-photo"
+          >
             <Image
               src="/images/oak-dining.webp"
-              alt="A welcoming dining space with oak furniture"
-              h={{ base: "330px", md: "440px" }}
+              alt="Warm oak-effect dining furniture and upholstered seating"
+              h={{ base: "360px", md: "420px" }}
               w="100%"
               objectFit="cover"
               loading="lazy"
             />
-            <Text fontSize="10px" letterSpacing=".05em" mt="5">
-              DETAILS THAT MAKE A DIFFERENCE{" "}
-              <ArrowUpRight
-                size={12}
-                style={{ display: "inline", marginLeft: 12 }}
-              />
-            </Text>
-          </chakra.a>
+            <Flex justify="space-between" mt="4" gap="4">
+              <Text fontSize="14px">A place to come together.</Text>
+              <ArrowUpRight size={18} />
+            </Flex>
+          </SiteLink>
         </Grid>
+        <Text fontSize="13px" color="muted" mt="7">
+          Supplied photography for inspiration. Exact pieces and finishes are
+          confirmed in your quotation.
+        </Text>
       </Wrap>
       <Faq />
       <ContactBand />
@@ -913,12 +959,12 @@ function TrustStrip() {
             <Flex key={t} gap="4" align="center">
               <Icon size={25} strokeWidth={1} color="#8c764b" />
               <Box>
-                <Text fontSize="10px" fontWeight="700">
+                <Text fontSize="12px" fontWeight="700">
                   {t}
                 </Text>
                 <Text
                   display={{ base: "none", sm: "block" }}
-                  fontSize="9px"
+                  fontSize="11px"
                   color="muted"
                   mt="1.5"
                 >
@@ -946,7 +992,7 @@ function CollectionCard({
   h: Record<string, string>;
 }) {
   return (
-    <chakra.a
+    <SiteLink
       href={href}
       position="relative"
       h={h}
@@ -977,7 +1023,7 @@ function CollectionCard({
         color="white"
       >
         <Text
-          fontSize="8px"
+          fontSize="10px"
           letterSpacing=".1em"
           mb="2"
           textTransform="uppercase"
@@ -991,7 +1037,7 @@ function CollectionCard({
           <ArrowUpRight size={17} />
         </Flex>
       </Box>
-    </chakra.a>
+    </SiteLink>
   );
 }
 function ProductCard({
@@ -1003,20 +1049,25 @@ function ProductCard({
 }) {
   const stock = available(p);
   return (
-    <Box minW="0">
+    <MotionBox
+      minW="0"
+      className="product-card"
+      whileHover={{ y: -3 }}
+      transition={{ duration: 0.2 }}
+    >
       <Box position="relative" bg="sage" className="group">
-        <chakra.a href={"/shop/" + p.slug} display="block" overflow="hidden">
+        <SiteLink href={"/shop/" + p.slug} display="block" overflow="hidden">
           <Image
             src={p.images[0]}
             alt={p.title + " — " + p.finish}
-            h={{ base: "230px", md: "355px" }}
+            h={{ base: "360px", sm: "310px", md: "355px" }}
             w="100%"
             objectFit="cover"
             loading="lazy"
             transition="transform .5s"
             _groupHover={{ transform: "scale(1.025)" }}
           />
-        </chakra.a>
+        </SiteLink>
         <Badge
           position="absolute"
           top="3"
@@ -1026,7 +1077,7 @@ function ProductCard({
           rounded="0"
           px="2"
           py="1"
-          fontSize="8px"
+          fontSize="10px"
           fontWeight="500"
         >
           {stock === null
@@ -1037,6 +1088,8 @@ function ProductCard({
         </Badge>
         <IconButton
           aria-label={"Add " + p.title + " to your selection"}
+          minW="44px"
+          minH="44px"
           position="absolute"
           bottom="3"
           right="3"
@@ -1052,14 +1105,14 @@ function ProductCard({
       </Box>
       <Text
         mt="4"
-        fontSize="8px"
+        fontSize="10px"
         textTransform="uppercase"
         letterSpacing=".12em"
         color="muted"
       >
         {p.category}
       </Text>
-      <chakra.a href={"/shop/" + p.slug}>
+      <SiteLink href={"/shop/" + p.slug}>
         <Text
           fontFamily="editorial"
           fontSize={{ base: "21px", md: "25px" }}
@@ -1067,14 +1120,14 @@ function ProductCard({
         >
           {p.title}
         </Text>
-      </chakra.a>
-      <Text fontSize="10px" color="muted" mt="2">
+      </SiteLink>
+      <Text fontSize="12px" color="muted" mt="2">
         {p.finish}
       </Text>
-      <Text fontSize="11px" mt="3" fontWeight="600">
+      <Text fontSize="13px" mt="3" fontWeight="600">
         {p.pricePence === null ? "Price on request" : money(p.pricePence)}
       </Text>
-    </Box>
+    </MotionBox>
   );
 }
 function Process() {
@@ -1135,10 +1188,10 @@ function Process() {
                 >
                   {x.n}
                 </Text>
-                <Text fontSize="12px" fontWeight="600" mb="4">
+                <Text fontSize="14px" fontWeight="600" mb="4">
                   {x.t}
                 </Text>
-                <Text fontSize="11px" lineHeight="2" color="whiteAlpha.800">
+                <Text fontSize="13px" lineHeight="2" color="whiteAlpha.800">
                   {x.d}
                 </Text>
               </Box>
@@ -1183,7 +1236,7 @@ function Faq() {
         <Accordion.Root collapsible>
           {faqs.map(([q, a], i) => (
             <Accordion.Item key={q} value={String(i)} borderColor="line">
-              <Accordion.ItemTrigger py="6" fontSize="12px" fontWeight="500">
+              <Accordion.ItemTrigger py="6" fontSize="14px" fontWeight="500">
                 <Box flex="1" textAlign="left">
                   {q}
                 </Box>
@@ -1191,7 +1244,7 @@ function Faq() {
               </Accordion.ItemTrigger>
               <Accordion.ItemContent>
                 <Accordion.ItemBody
-                  fontSize="12px"
+                  fontSize="14px"
                   lineHeight="2"
                   color="muted"
                   pb="6"
@@ -1218,7 +1271,7 @@ function ContactBand() {
             </Editorial>
           </Box>
           <Action asChild>
-            <a href="/contact">Tell us what you have in mind</a>
+            <Link href="/contact">Tell us what you have in mind</Link>
           </Action>
         </Flex>
       </Wrap>
@@ -1238,7 +1291,7 @@ function Footer({ data }: { data: Bootstrap }) {
             <Brand />
             <Text
               color="muted"
-              fontSize="11px"
+              fontSize="13px"
               lineHeight="2"
               maxW="245px"
               mt="6"
@@ -1246,7 +1299,7 @@ function Footer({ data }: { data: Bootstrap }) {
               Your furniture, appliance and property furnishing partner. Based
               in Glasgow. Built around you.
             </Text>
-            <chakra.a
+            <SiteLink
               href={data.settings.instagram}
               target="_blank"
               rel="noreferrer"
@@ -1254,11 +1307,11 @@ function Footer({ data }: { data: Bootstrap }) {
               gap="2"
               alignItems="center"
               mt="5"
-              fontSize="10px"
+              fontSize="12px"
             >
               <Camera size={14} />
               Find a little inspiration
-            </chakra.a>
+            </SiteLink>
           </Box>
           <FooterLinks title="EXPLORE" links={nav} />
           <FooterLinks
@@ -1272,21 +1325,21 @@ function Footer({ data }: { data: Bootstrap }) {
           />
           <Box>
             <Eyebrow>LET’S TALK</Eyebrow>
-            <chakra.a
+            <SiteLink
               href={"tel:" + data.settings.phone.replace(/\s/g, "")}
               display="block"
-              fontSize="13px"
+              fontSize="15px"
               mb="3"
             >
               {data.settings.phone}
-            </chakra.a>
-            <chakra.a
+            </SiteLink>
+            <SiteLink
               href={"tel:" + data.settings.mobile.replace(/\s/g, "")}
-              fontSize="13px"
+              fontSize="15px"
             >
               {data.settings.mobile}
-            </chakra.a>
-            <Text fontSize="10px" color="muted" mt="6">
+            </SiteLink>
+            <Text fontSize="12px" color="muted" mt="6">
               A real person. A little less to do.
             </Text>
           </Box>
@@ -1298,7 +1351,7 @@ function Footer({ data }: { data: Bootstrap }) {
           justify="space-between"
           gap="5"
           flexWrap="wrap"
-          fontSize="9px"
+          fontSize="11px"
           color="muted"
         >
           <Text>
@@ -1306,12 +1359,12 @@ function Footer({ data }: { data: Bootstrap }) {
             Glasgow
           </Text>
           <Flex gap="5">
-            <chakra.a href="/privacy">Privacy</chakra.a>
-            <chakra.a href="/terms">Ordering information</chakra.a>
-            <chakra.a href="/admin">
+            <SiteLink href="/privacy">Privacy</SiteLink>
+            <SiteLink href="/terms">Ordering information</SiteLink>
+            <SiteLink href="/admin">
               Administration{" "}
               <ArrowUpRight size={10} style={{ display: "inline" }} />
-            </chakra.a>
+            </SiteLink>
           </Flex>
         </Flex>
       </Wrap>
@@ -1324,15 +1377,15 @@ function FooterLinks({ title, links }: { title: string; links: string[][] }) {
       <Eyebrow>{title}</Eyebrow>
       <Flex direction="column" gap="3">
         {links.map(([h, t]) => (
-          <chakra.a
+          <SiteLink
             href={h}
             key={h}
-            fontSize="11px"
+            fontSize="13px"
             color="muted"
             _hover={{ color: "forest" }}
           >
             {t}
-          </chakra.a>
+          </SiteLink>
         ))}
       </Flex>
     </Box>
@@ -1353,7 +1406,7 @@ function PageIntro({
       <Editorial as="h1" fontSize={{ base: "46px", md: "66px" }}>
         {title}
       </Editorial>
-      <Text fontSize="13px" color="muted" lineHeight="1.9" maxW="560px" mt="6">
+      <Text fontSize="15px" color="muted" lineHeight="1.9" maxW="560px" mt="6">
         {description}
       </Text>
     </Wrap>
@@ -1416,9 +1469,11 @@ function Shop({
                 key={c}
                 size="sm"
                 rounded="0"
-                fontSize="11px"
+                fontSize="13px"
                 bg={category === c ? "forest" : "transparent"}
                 color={category === c ? "white" : "forest"}
+                aria-pressed={category === c}
+                minH="44px"
                 onClick={() => setCategory(c)}
               >
                 {c}
@@ -1433,7 +1488,7 @@ function Shop({
                 aria-label="Filter products"
                 placeholder="Find a piece…"
                 w={{ base: "150px", md: "180px" }}
-                fontSize="11px"
+                fontSize="13px"
                 borderColor="line"
                 rounded="0"
               />
@@ -1443,7 +1498,7 @@ function Shop({
                 value={sort}
                 onChange={(e) => setSort(e.target.value)}
                 aria-label="Sort products"
-                fontSize="11px"
+                fontSize="13px"
                 rounded="0"
                 borderColor="line"
               >
@@ -1456,7 +1511,7 @@ function Shop({
             </NativeSelect.Root>
           </Flex>
         </Flex>
-        <Text color="muted" fontSize="10px" mb="6">
+        <Text color="muted" fontSize="12px" mb="6">
           {products.length} {products.length === 1 ? "piece" : "pieces"} to
           explore
         </Text>
@@ -1500,11 +1555,13 @@ function ProductDetail({
 }) {
   const [image, setImage] = useState(p.images[0]);
   const stock = available(p);
+  const selectedImage = p.images.includes(image) ? image : p.images[0];
   return (
     <>
       <Wrap pt="8" pb="20">
-        <Text fontSize="10px" color="muted" mb="8">
-          <a href="/">Home</a> / <a href="/shop">Collection</a> / {p.title}
+        <Text fontSize="12px" color="muted" mb="8">
+          <Link href="/">Home</Link> / <Link href="/shop">Collection</Link> /{" "}
+          {p.title}
         </Text>
         <Grid
           templateColumns={{ base: "1fr", md: "1.1fr 1fr" }}
@@ -1512,19 +1569,20 @@ function ProductDetail({
         >
           <Box>
             <Image
-              src={image}
+              src={selectedImage}
               alt={p.title}
               w="100%"
               h={{ base: "450px", md: "650px" }}
               objectFit="cover"
             />
-            <Flex gap="3" mt="4">
+            <Flex gap="3" mt="4" flexWrap="wrap">
               {p.images.map((src, i) => (
                 <chakra.button
                   key={src}
                   onClick={() => setImage(src)}
                   border="2px solid"
-                  borderColor={image === src ? "forest" : "transparent"}
+                  borderColor={selectedImage === src ? "forest" : "transparent"}
+                  aria-pressed={selectedImage === src}
                   aria-label={"View image " + (i + 1)}
                 >
                   <Image
@@ -1541,16 +1599,16 @@ function ProductDetail({
           <Box pt={{ md: "10" }}>
             <Eyebrow>{p.category}</Eyebrow>
             <Editorial as="h1">{p.title}</Editorial>
-            <Text mt="5" color="muted" fontSize="12px">
+            <Text mt="5" color="muted" fontSize="14px">
               {p.finish}
             </Text>
             <Text fontSize="20px" mt="7">
               {p.pricePence === null ? "Price on request" : money(p.pricePence)}
             </Text>
-            <Text fontSize="12px" lineHeight="2" color="muted" my="7">
+            <Text fontSize="14px" lineHeight="2" color="muted" my="7">
               {p.description}
             </Text>
-            <Text fontSize="11px" mb="6">
+            <Text fontSize="13px" mb="6">
               {stock === null
                 ? "Made to order? In stock? Let’s check for you."
                 : stock === 0
@@ -1561,7 +1619,7 @@ function ProductDetail({
               <ShoppingBag size={16} />
               {stock === 0 ? "Currently unavailable" : "Add to your selection"}
             </Action>
-            <Text fontSize="10px" color="muted" mt="4" lineHeight="1.8">
+            <Text fontSize="12px" color="muted" mt="4" lineHeight="1.8">
               {p.pricePence === null
                 ? "Create a selection and request one tailored quotation."
                 : "Delivery charges are confirmed before payment."}{" "}
@@ -1570,7 +1628,7 @@ function ProductDetail({
             <Box mt="9" pt="6" borderTop="1px solid" borderColor="line">
               <Flex gap="3" align="center">
                 <Truck size={20} strokeWidth={1} />
-                <Text fontSize="11px">
+                <Text fontSize="13px">
                   Delivery & installation arranged with our team
                 </Text>
               </Flex>
@@ -1651,7 +1709,7 @@ function Packages() {
                 <Editorial fontSize="32px">{x.t}</Editorial>
                 <Text
                   color="muted"
-                  fontSize="12px"
+                  fontSize="14px"
                   lineHeight="2"
                   mt="5"
                   mb="6"
@@ -1662,22 +1720,22 @@ function Packages() {
                   {x.list.map((v) => (
                     <Flex key={v} gap="2" align="center">
                       <Check size={13} />
-                      <Text fontSize="11px">{v}</Text>
+                      <Text fontSize="13px">{v}</Text>
                     </Flex>
                   ))}
                 </Flex>
                 <Box mt="8">
                   <Action secondary w="100%" asChild>
-                    <a href={"/contact?pack=" + encodeURIComponent(x.t)}>
+                    <Link href={"/contact?pack=" + encodeURIComponent(x.t)}>
                       Discuss this pack
-                    </a>
+                    </Link>
                   </Action>
                 </Box>
               </Box>
             </Box>
           ))}
         </Grid>
-        <Text fontSize="11px" color="muted" mt="6">
+        <Text fontSize="13px" color="muted" mt="6">
           Every pack is quoted individually. Contents, specifications, pricing
           and delivery are agreed before you order.
         </Text>
@@ -1728,7 +1786,7 @@ function Spaces() {
               />
               <Flex justify="space-between" mt="4" mb="4">
                 <Box>
-                  <Text fontSize="9px" color="muted" letterSpacing=".1em">
+                  <Text fontSize="11px" color="muted" letterSpacing=".1em">
                     {cat.toUpperCase()}
                   </Text>
                   <Text fontFamily="editorial" fontSize="25px" mt="2">
@@ -1753,6 +1811,9 @@ function Spaces() {
           <Drawer.Backdrop />
           <Drawer.Positioner>
             <Drawer.Content bg="forest">
+              <Drawer.Title className="sr-only">
+                {selected === null ? "Our spaces" : photos[selected][1]}
+              </Drawer.Title>
               <Drawer.Body display="grid" placeItems="center" p="6">
                 {selected !== null && (
                   <Image
@@ -1811,13 +1872,13 @@ function About() {
                 Peace of mind.
               </Box>
             </Editorial>
-            <Text fontSize="13px" color="muted" lineHeight="2" my="7">
+            <Text fontSize="15px" color="muted" lineHeight="2" my="7">
               We supply furniture and appliances for landlords, serviced
               accommodation, social housing and homes. Whether you need a single
               replacement or a full property set-up, we help you bring the right
               pieces together.
             </Text>
-            <Text fontSize="13px" color="muted" lineHeight="2" mb="8">
+            <Text fontSize="15px" color="muted" lineHeight="2" mb="8">
               Tell us what matters to you: your budget, your space and when it
               needs to be ready. We will talk through the options and confirm
               every detail in your quotation.
@@ -1855,7 +1916,7 @@ function Contact({ data }: { data: Bootstrap }) {
             <Eyebrow>GOOD CONVERSATIONS START HERE</Eyebrow>
             <Editorial fontSize="33px">Prefer a proper chat?</Editorial>
             <Flex direction="column" gap="5" mt="8">
-              <chakra.a
+              <SiteLink
                 href={"tel:" + data.settings.phone.replace(/\s/g, "")}
                 display="flex"
                 gap="3"
@@ -1863,8 +1924,8 @@ function Contact({ data }: { data: Bootstrap }) {
               >
                 <Phone size={16} />
                 <Text fontSize="18px">{data.settings.phone}</Text>
-              </chakra.a>
-              <chakra.a
+              </SiteLink>
+              <SiteLink
                 href={"tel:" + data.settings.mobile.replace(/\s/g, "")}
                 display="flex"
                 gap="3"
@@ -1872,32 +1933,32 @@ function Contact({ data }: { data: Bootstrap }) {
               >
                 <Phone size={16} />
                 <Text fontSize="18px">{data.settings.mobile}</Text>
-              </chakra.a>
+              </SiteLink>
             </Flex>
             <Box mt="10" pt="7" borderTop="1px solid" borderColor="line">
               <Flex gap="3" align="center">
                 <MapPin size={17} />
-                <Text fontSize="12px" fontWeight="600">
+                <Text fontSize="14px" fontWeight="600">
                   Glasgow & surrounding areas
                 </Text>
               </Flex>
-              <Text mt="4" fontSize="11px" lineHeight="2" color="muted">
+              <Text mt="4" fontSize="13px" lineHeight="2" color="muted">
                 {data.settings.deliveryNote}
               </Text>
             </Box>
-            <chakra.a
+            <SiteLink
               href={data.settings.instagram}
               target="_blank"
               rel="noreferrer"
               display="flex"
               gap="3"
               alignItems="center"
-              fontSize="11px"
+              fontSize="13px"
               mt="8"
             >
               <Camera size={16} />
               See what we’ve been working on <ArrowUpRight size={15} />
-            </chakra.a>
+            </SiteLink>
           </Box>
         </Grid>
       </Wrap>
@@ -1919,6 +1980,14 @@ function Cart({
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const [requestId, setRequestId] = useState("");
+  const checkoutRequest = useRef<AbortController | null>(null);
+  const checkoutLocked = useRef(false);
+  useEffect(
+    () => () => {
+      checkoutRequest.current?.abort();
+    },
+    [],
+  );
   useEffect(() => {
     const fingerprint = JSON.stringify(lines) + ":" + email;
     try {
@@ -1964,19 +2033,26 @@ function Cart({
   );
   async function checkout(e: React.FormEvent) {
     e.preventDefault();
-    if (busy) return;
+    if (checkoutLocked.current || !requestId || !purchasable || hasUnavailable)
+      return;
+    checkoutLocked.current = true;
+    const controller = new AbortController();
+    checkoutRequest.current = controller;
     setBusy(true);
     setError("");
     try {
       const r = await apiRequest<{ url: string }>("/api/checkout", {
         method: "POST",
+        signal: controller.signal,
         body: JSON.stringify({ items: lines, email, requestId }),
       });
+      if (controller.signal.aborted) return;
       const url = new URL(r.url);
       if (url.protocol !== "https:" || url.hostname !== "checkout.stripe.com")
         throw new Error("The payment link could not be verified.");
       location.assign(r.url);
     } catch (e) {
+      if (controller.signal.aborted) return;
       if (e instanceof RequestError && e.code === "CHECKOUT_ENDED") {
         const id = createId();
         setRequestId(id);
@@ -1992,6 +2068,8 @@ function Cart({
       }
       setError(e instanceof Error ? e.message : "Please try again.");
       setBusy(false);
+    } finally {
+      checkoutLocked.current = false;
     }
   }
   return (
@@ -2012,7 +2090,7 @@ function Cart({
             description="Your selection is empty. Explore the collection and add a piece that feels right."
           >
             <Action asChild>
-              <a href="/shop">Find your first piece</a>
+              <Link href="/shop">Find your first piece</Link>
             </Action>
           </Empty>
         ) : (
@@ -2037,16 +2115,19 @@ function Cart({
                     <Text fontFamily="editorial" fontSize="25px">
                       {p?.title ?? "This piece is no longer available"}
                     </Text>
-                    <Text fontSize="10px" color="muted" mt="2">
+                    <Text fontSize="12px" color="muted" mt="2">
                       {p?.finish}
                     </Text>
-                    <Text fontSize="12px" mt="3">
+                    <Text fontSize="14px" mt="3">
                       {p?.pricePence ? money(p.pricePence) : "Price on request"}
                     </Text>
                     <Flex gap="3" align="center" mt="4">
                       <IconButton
                         aria-label={"Reduce quantity of " + p?.title}
-                        size="xs"
+                        size="sm"
+                        minW="44px"
+                        minH="44px"
+                        disabled={busy}
                         variant="outline"
                         rounded="0"
                         onClick={() =>
@@ -2055,15 +2136,18 @@ function Cart({
                       >
                         <Minus size={12} />
                       </IconButton>
-                      <Text fontSize="12px">{line.quantity}</Text>
+                      <Text fontSize="14px">{line.quantity}</Text>
                       <IconButton
                         aria-label={"Increase quantity of " + p?.title}
-                        size="xs"
+                        size="sm"
+                        minW="44px"
+                        minH="44px"
                         variant="outline"
                         rounded="0"
                         disabled={
+                          busy ||
                           line.quantity >=
-                          Math.min(50, p ? (available(p) ?? 50) : 0)
+                            Math.min(50, p ? (available(p) ?? 50) : 0)
                         }
                         onClick={() =>
                           onQuantity(line.productId, line.quantity + 1)
@@ -2073,8 +2157,9 @@ function Cart({
                       </IconButton>
                       <Button
                         variant="plain"
-                        fontSize="10px"
+                        fontSize="12px"
                         ml="auto"
+                        disabled={busy}
                         onClick={() => onQuantity(line.productId, 0)}
                       >
                         Remove
@@ -2088,24 +2173,24 @@ function Cart({
             <Box bg="sage" p="7" alignSelf="start">
               <Eyebrow>THE NEXT STEP</Eyebrow>
               <Editorial fontSize="32px">Let’s make it happen.</Editorial>
-              <Text fontSize="12px" lineHeight="2" color="muted" my="6">
+              <Text fontSize="14px" lineHeight="2" color="muted" my="6">
                 {quotable
                   ? "Your selected pieces will be included in your enquiry. Our team will confirm specifications, current prices and delivery."
                   : "Review your selection and delivery charge before continuing to secure checkout."}
               </Text>
               {hasUnavailable && (
-                <Text role="alert" fontSize="12px" color="red.700" mb="5">
+                <Text role="alert" fontSize="14px" color="red.700" mb="5">
                   One or more pieces are unavailable at this quantity. Please
                   update your selection.
                 </Text>
               )}
               {!quotable && (
                 <Box borderY="1px solid" borderColor="line" py="4" mb="6">
-                  <Flex justify="space-between" fontSize="12px">
+                  <Flex justify="space-between" fontSize="14px">
                     <Text>Items</Text>
                     <Text>{money(subtotal)}</Text>
                   </Flex>
-                  <Flex justify="space-between" fontSize="12px" mt="3">
+                  <Flex justify="space-between" fontSize="14px" mt="3">
                     <Text>Delivery</Text>
                     <Text>
                       {data.settings.deliveryFeePence === null
@@ -2137,6 +2222,8 @@ function Cart({
                     required
                     placeholder="Your email address"
                     aria-label="Email for your order"
+                    autoComplete="email"
+                    disabled={busy}
                     bg="paper"
                     rounded="0"
                     mb="4"
@@ -2145,30 +2232,30 @@ function Cart({
                     type="submit"
                     w="100%"
                     loading={busy}
-                    disabled={hasUnavailable}
+                    disabled={hasUnavailable || !requestId}
                   >
                     Secure checkout
                   </Action>
-                  <Text fontSize="9px" color="muted" mt="4">
+                  <Text fontSize="11px" color="muted" mt="4">
                     Payment handled securely by Stripe. Your order is confirmed
                     after payment verification.
                   </Text>
                 </chakra.form>
               ) : (
                 <Action asChild w="100%">
-                  <a href="/contact?selection=1">Request my quotation</a>
+                  <Link href="/contact?selection=1">Request my quotation</Link>
                 </Action>
               )}
               {error && (
-                <Text role="alert" fontSize="12px" color="red.700" mt="4">
+                <Text role="alert" fontSize="14px" color="red.700" mt="4">
                   {error}
                 </Text>
               )}
-              <Text fontSize="10px" color="muted" lineHeight="1.8" mt="5">
+              <Text fontSize="12px" color="muted" lineHeight="1.8" mt="5">
                 Need a hand?{" "}
-                <a href={"tel:" + data.settings.phone.replace(/\s/g, "")}>
+                <Link href={"tel:" + data.settings.phone.replace(/\s/g, "")}>
                   {data.settings.phone}
-                </a>
+                </Link>
               </Text>
             </Box>
           </Grid>
