@@ -10,6 +10,8 @@ Open `AdminApp.xcodeproj` in Xcode on macOS. The target supports iOS 17 and late
 
 The app is a SwiftUI native shell around the responsive administration workspace. All mutations use the same protected server routes as the website. It does not cache inventory or payment status, and it does not provide offline stock writes or native push notifications.
 
+The AppIcon asset uses the owner's supplied Glasgow Landlord Solutions gold-and-black logo, converted to an opaque 1024×1024 PNG without cropping or redesign. `BrandAssets/AppIcon-original.jpg` preserves the original source. Xcode compiles this same asset for the installed app and the App Store Connect build icon; the workflow also publishes `AdminApp-icon.png` for inspection.
+
 ## Codemagic
 
 The root `codemagic.yaml` contains the `ios-simulator` workflow. Select the branch containing this configuration and start the workflow on a Mac mini M2. It builds the shared `AdminApp` scheme with Xcode and publishes `AdminApp-simulator.app.zip` and `xcodebuild.log` as artifacts. It needs no Apple credentials or third-party dependencies.

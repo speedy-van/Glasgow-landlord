@@ -13,6 +13,7 @@ workflows:
           xcodebuild -version
           xcodebuild -list -json -project ios/AdminApp.xcodeproj
           mkdir -p build/artifacts
+          cp ios/AdminApp/Assets.xcassets/AppIcon.appiconset/AppIcon.png build/artifacts/AdminApp-icon.png
           xcodebuild build \
             -project ios/AdminApp.xcodeproj \
             -scheme AdminApp \
@@ -30,3 +31,4 @@ workflows:
     artifacts:
       - build/artifacts/*.app.zip
       - build/artifacts/*.log
+      - build/artifacts/*.png
