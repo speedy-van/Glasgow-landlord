@@ -20,6 +20,8 @@ The [first Codemagic build](https://codemagic.io/app/6adac66dea74d20e308310b3/bu
 
 The [second build](https://codemagic.io/app/6adac66dea74d20e308310b3/build/6adac9008a524d15d6a63d5a) succeeded from commit `d12aa0d` with the owner's supplied logo compiled into the app. It published a 2.23 MB simulator application and took 1 minute 18 seconds.
 
+The [third build](https://codemagic.io/app/6adac66dea74d20e308310b3/build/6adacb5d8a524d15d6a63dca) succeeded from commit `611d8c6` after configuring the registered Apple bundle identifier and team. It took 1 minute 3 seconds. It remains an unsigned simulator build; no IPA has been signed or uploaded to Apple yet.
+
 The simulator artifact is not an IPA and cannot be installed on a physical iPhone or uploaded to TestFlight. The bundle identifier and App Store Connect record have been created; signing is the remaining setup step. No signing credentials are stored in this repository.
 
 The `ios-testflight` workflow is prepared for a signed IPA and upload to App Store Connect. It requires the app-scoped encrypted environment group `glasgow_apple_signing` with `APP_STORE_CONNECT_ISSUER_ID`, `APP_STORE_CONNECT_KEY_IDENTIFIER`, `APP_STORE_CONNECT_PRIVATE_KEY` (the API `.p8` contents), and `CERTIFICATE_PRIVATE_KEY` (a separate reusable distribution certificate private key). The group has not yet been configured. API keys and private keys must never be committed, printed in build logs or included in downloadable artifacts. The workflow fetches matching signing files, creates them when needed, sets a unique build number from Codemagic, and uploads without requesting beta or App Store review. It has not yet been run.
