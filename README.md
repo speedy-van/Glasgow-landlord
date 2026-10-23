@@ -65,7 +65,9 @@ The published Site currently uses its existing image bucket. This Vercel target 
 
 ## iOS
 
-The SwiftUI source in ios/ continues to open the existing protected administration URL, which now uses the shared Neon database. It is not a signed application. Building, device-testing, signing and TestFlight distribution require macOS, Xcode and the owner's Apple Developer account. Change WorkspaceURL only after a replacement deployment is verified.
+The SwiftUI source in `ios/` opens `https://glasgow-landlord.vercel.app/admin`. The Vercel administrator authentication and account must be configured before inventory management is available. The app uses the same protected server routes as the website.
+
+The root `codemagic.yaml` builds the shared `AdminApp` scheme on a Mac mini M2 using the `ios-simulator` workflow. Its unsigned simulator `.app.zip` is for native compilation validation; it cannot be installed on an iPhone or uploaded to TestFlight. See [ios/README.md](ios/README.md) for setup and distribution requirements. The placeholder bundle identifier must be replaced with an identifier registered to the owner's Apple Developer account before signing.
 
 ## Operational limits
 

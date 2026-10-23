@@ -23,7 +23,7 @@ workflows:
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
-            | tee build/artifacts/xcodebuild.log
+            2>&1 | tee build/artifacts/xcodebuild.log
           ditto -c -k --keepParent \
             build/ios-simulator/Build/Products/Debug-iphonesimulator/AdminApp.app \
             build/artifacts/AdminApp-simulator.app.zip

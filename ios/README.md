@@ -14,6 +14,8 @@ The app is a SwiftUI native shell around the responsive administration workspace
 
 The root `codemagic.yaml` contains the `ios-simulator` workflow. Select the branch containing this configuration and start the workflow on a Mac mini M2. It builds the shared `AdminApp` scheme with Xcode and publishes `AdminApp-simulator.app.zip` and `xcodebuild.log` as artifacts. It needs no Apple credentials or third-party dependencies.
 
+The [first Codemagic build](https://codemagic.io/app/6adac66dea74d20e308310b3/build/6adac6f78a524d15d6a63cfb) succeeded on 23 October 2026 from commit `44100c3` on `design/refinement`. Xcode 26.6 compiled the arm64 and x86_64 simulator application, and Codemagic published `AdminApp-simulator.app.zip` (140.48 KB). The complete job took 56 seconds; this verifies compilation and artifact creation, not a simulator launch or authenticated administration flows.
+
 The simulator artifact is not an IPA and cannot be installed on a physical iPhone or uploaded to TestFlight. For distribution, first register the bundle identifier and create the app in App Store Connect, then configure signing with the correct Apple team, certificate and provisioning profile. No signing credentials are stored in this repository.
 
 The deployed website still requires its administrator authentication configuration and an administrator account before the app can be used to manage inventory. A successful native build does not verify authenticated website flows. Physical-device authentication, photo uploads and product edits must be checked after those are configured. App Store review has not been performed.
