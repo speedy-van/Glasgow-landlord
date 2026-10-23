@@ -2,7 +2,7 @@
 
 This branch is a standard Next.js App Router deployment target for Vercel. It preserves the supplied photographs, Chakra UI v3 design, TypeScript models, product catalogue, furnishing packs, enquiries, stock reservations and Stripe webhook behaviour. Node.js 24 and npm are required. Exact resolved dependencies are recorded in package-lock.json.
 
-The Vercel production site is available at [glasgow-landlord.vercel.app](https://glasgow-landlord.vercel.app). On 23 October 2026, the authenticated CLI created and linked `gls16/glasgow-landlord`, stored `DATABASE_URL` as a Production Secret, and initially deployed source commit `a043680`. The [subsequent production deployment](https://vercel.com/gls16/glasgow-landlord/5dzzEMJ6QPMzPEzjHnzGMnymbrx5) of source commit `1b06426` is Ready with administrator authentication configured. The existing Site remains on its previous runtime with its existing ChatGPT authentication and the same Neon database.
+The Vercel production site is available at [glasgow-landlord.vercel.app](https://glasgow-landlord.vercel.app). On 23 October 2026, the authenticated CLI created and linked `gls16/glasgow-landlord`, stored `DATABASE_URL` as a Production Secret, and initially deployed source commit `a043680`. The [current production deployment](https://vercel.com/gls16/glasgow-landlord/CRnTQAyraG3Lnc1JTHX3NnsL9dzW) of source commit `1b06426` is Ready with administrator authentication and dedicated reviewer access configured. The existing Site remains on its previous runtime with its existing ChatGPT authentication and the same Neon database.
 
 Production verification confirmed the public home page and catalogue load successfully, `/api/bootstrap` returns live data with five products, and the canonical origin matches the production domain. Browser checks covered filtering, basket quantity/removal, mobile navigation and focus management without console errors or warnings. No migration, administrator provisioning, valid test enquiry or payment was performed during the initial deployment. Subsequent browser verification confirmed administrator sign-in and a protected dashboard showing five products; unauthenticated `/api/admin` requests still return HTTP 401, and `/api/auth/ok` returns HTTP 200.
 
@@ -59,6 +59,8 @@ The database migration runner is npm run db:migrate. It applies checked-in migra
 
 The existing Site uses its own authenticated account and ADMIN_EMAILS. Standalone Vercel authentication is a separate security boundary. On 23 October 2026, an explicitly authorized administrator account was provisioned using the repository utility, and `ADMIN_EMAILS`, `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL` were configured for Production through Vercel. Browser verification confirmed successful sign-in at `/admin` and a protected dashboard showing five products. Unauthenticated administration API requests return HTTP 401. Credentials and secret values remain outside Git.
 
+A separate temporary reviewer administrator account was subsequently created with the owner's approval, preserving the existing administrator allowlist. Its access was verified through HTTP sign-in and administration requests showing five products; administration access returned HTTP 401 after sign-out. Its credentials were saved privately in App Store Connect for TestFlight review, without sharing an existing user's password. Revoke this account's access when Apple no longer requires it for review.
+
 Public registration remains disabled, and the server-side administrator allowlist is enforced. The provisioning utility requires explicit account details, preserves existing accounts and is never invoked by installation, build or deployment.
 
 ## Image cutover
@@ -75,7 +77,7 @@ The [signed Codemagic build](https://codemagic.io/app/6adac66dea74d20e308310b3/b
 
 Build 5 is saved against the App Store version 1.0 draft, which remains `Prepare for Submission`. Apple's displayed build icon and included AppIcon were verified to match the owner's supplied gold-and-black logo.
 
-The app is registered with bundle identifier `com.glasgowlandlord.admin`. No internal testers have been assigned, and neither TestFlight beta review nor App Store review was requested. Physical-device authentication, photo uploads and inventory edits through the native app remain unverified. See [ios/README.md](ios/README.md) for build evidence and distribution details.
+The app is registered with bundle identifier `com.glasgowlandlord.admin`. Version 1.0, build 5 is attached to internal and private external TestFlight groups. One internal tester has status `Invited` for this app. One external tester is registered, with invitation and external availability awaiting Apple's approval. The first TestFlight beta review was submitted on 23 October 2026 and has status `WAITING_FOR_REVIEW`. Automatic external build notification is enabled, and the public invitation link is disabled. No App Store review was requested. Physical-device authentication, photo uploads and inventory edits through the native app remain unverified. See [ios/README.md](ios/README.md) for build evidence and distribution details.
 
 ## Operational limits
 
