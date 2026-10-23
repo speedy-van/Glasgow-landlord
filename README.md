@@ -67,7 +67,13 @@ The published Site currently uses its existing image bucket. This Vercel target 
 
 The SwiftUI source in `ios/` opens `https://glasgow-landlord.vercel.app/admin`. The Vercel administrator authentication and account must be configured before inventory management is available. The app uses the same protected server routes as the website.
 
-The root `codemagic.yaml` builds the shared `AdminApp` scheme on a Mac mini M2 using the `ios-simulator` workflow. Its unsigned simulator `.app.zip` is for native compilation validation; it cannot be installed on an iPhone or uploaded to TestFlight. See [ios/README.md](ios/README.md) for setup and distribution requirements. The app is registered in the owner's Apple team with bundle identifier `com.glasgowlandlord.admin` and App Store Connect ID `6826049467`. App-scoped signing secrets are configured in Codemagic; the first distribution attempt was stopped by Apple's existing distribution-certificate limit before an IPA was created or uploaded.
+The root `codemagic.yaml` builds the shared `AdminApp` scheme on a Mac mini M2. The `ios-simulator` workflow produces an unsigned simulator `.app.zip` for compilation checks. The `ios-testflight` workflow produces a signed IPA and uploads it to App Store Connect using app-scoped encrypted signing secrets.
+
+The [signed Codemagic build](https://codemagic.io/app/6adac66dea74d20e308310b3/build/6adad2648a524d15d6a63f26) succeeded on 23 October 2026 from commit `603e254`, taking 2 minutes 39 seconds and producing a 2.20 MB IPA. Apple accepted version **1.0, build 5**, reported processing state `VALID` and binary state `Validated`, and returned build icon asset metadata. The certificate-limit failure was resolved under the owner's delegated authorization by replacing a legacy certificate whose only listed provisioning profile was invalid. The replacement matches the existing encrypted signing key. No secrets are committed.
+
+Build 5 is saved against the App Store version 1.0 draft, which remains `Prepare for Submission`. Apple's displayed build icon and included AppIcon were verified to match the owner's supplied gold-and-black logo.
+
+The app is registered with bundle identifier `com.glasgowlandlord.admin`. No internal testers have been assigned, and neither TestFlight beta review nor App Store review was requested. Physical-device authentication, photo uploads and inventory edits remain unverified; the deployed website's administrator authentication and account are still unconfigured. See [ios/README.md](ios/README.md) for build evidence and distribution details.
 
 ## Operational limits
 
