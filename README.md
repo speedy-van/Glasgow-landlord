@@ -2,13 +2,19 @@
 
 This branch is a standard Next.js App Router deployment target for Vercel. It preserves the supplied photographs, Chakra UI v3 design, TypeScript models, product catalogue, furnishing packs, enquiries, stock reservations and Stripe webhook behaviour. Node.js 24 and npm are required. Exact resolved dependencies are recorded in package-lock.json.
 
-The currently published Site remains on its existing runtime and uses the same Neon database. Its existing ChatGPT authentication remains in place. This branch has not been deployed to Vercel: the connected Vercel account currently rejects team access with HTTP 403.
+The Vercel production site is available at [glasgow-landlord.vercel.app](https://glasgow-landlord.vercel.app). On 23 October 2026, the authenticated CLI created and linked `gls16/glasgow-landlord`, stored `DATABASE_URL` as a Production Secret, and initially deployed source commit `a043680`. The [current production deployment](https://vercel.com/gls16/glasgow-landlord/CRnTQAyraG3Lnc1JTHX3NnsL9dzW) of source commit `1b06426` is Ready with administrator authentication and dedicated reviewer access configured. The existing Site remains on its previous runtime with its existing ChatGPT authentication and the same Neon database.
+
+Production verification confirmed the public home page and catalogue load successfully, `/api/bootstrap` returns live data with five products, and the canonical origin matches the production domain. Browser checks covered filtering, basket quantity/removal, mobile navigation and focus management without console errors or warnings. No migration, administrator provisioning, valid test enquiry or payment was performed during the initial deployment. Subsequent browser verification confirmed administrator sign-in and a protected dashboard showing five products; unauthenticated `/api/admin` requests still return HTTP 401, and `/api/auth/ok` returns HTTP 200.
 
 ## Implemented and verified
 
+The design refinement uses the supplied interiors photography, a warm cream and forest palette, architectural app icons, and locally served Manrope/Cormorant fonts with their OFL licences. The landing page, collection, product galleries, furnishing packs, basket, enquiry forms, payment status and private workspace share the same visual language. Navigation drawers have named dialogs and managed keyboard focus; motion respects the user's reduced-motion preference.
+
+Chakra's streamed styles are registered through Emotion before hydration. Development and production builds use Webpack to avoid the documented Chakra/Emotion hydration issue with Turbopack. The only added dependency declaration is the already resolved `@emotion/cache` version used by that registry.
+
 - Standard Next.js scripts and Vercel configuration, without the Cloudflare/Vinext build adapter.
 - Neon HTTP queries for commerce and a bounded Neon serverless connection pool for authentication.
-- Better Auth sessions with HTTP-only cookies, database-backed sign-in limits, disabled public registration and a server-side administrator allowlist. Browser-supplied platform identity headers are ignored.
+- Better Auth sessions with HTTP-only cookies, database-backed sign-in limits, disabled public registration and a server-side administrator allowlist. Browser-supplied platform identity headers are ignored. Write requests validate the same canonical public origin as authentication, including when Next exposes an internal bind address.
 - Product and settings version checks, database stock reservations, server-owned prices, checkout request idempotency and signed Stripe webhook verification.
 - Private Vercel Blob uploads with verified JPEG/PNG/WebP signatures. Uploads are capped at 4 MB to fit Vercel's request limit. Product image URLs remain /api/media/<key>, so no storage credentials reach browsers.
 - Shared basket state across mounted components and browser tabs; overlapping catalogue and administration refreshes are cancelled to prevent stale responses replacing newer state.
@@ -29,27 +35,33 @@ Tests exercise real PostgreSQL semantics through PGlite. They cover stock reserv
 
 Use the hosting secret editor. Never commit real values or expose them through NEXT_PUBLIC_ variables.
 
-| Key                   | Purpose                                                                                                                                                    |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| DATABASE_URL          | Existing Neon pooled PostgreSQL connection. Required for shared data.                                                                                      |
-| ADMIN_EMAILS          | Comma-separated administrator email allowlist.                                                                                                             |
-| BETTER_AUTH_SECRET    | Random secret of at least 32 characters for standalone authentication.                                                                                     |
-| BETTER_AUTH_URL       | Canonical HTTPS origin for standalone authentication; exact local origin during development. Preview deployments can use Vercel's injected deployment URL. |
-| BLOB_STORE_ID         | Private Vercel Blob store connected to the deployed project using OIDC.                                                                                    |
-| BLOB_READ_WRITE_TOKEN | Optional alternative to Blob OIDC authentication for local development or an existing store.                                                               |
-| STRIPE_SECRET_KEY     | Stripe server key; start with test mode.                                                                                                                   |
-| STRIPE_WEBHOOK_SECRET | Secret for the deployed /api/stripe/webhook endpoint.                                                                                                      |
-| MAPBOX_ACCESS_TOKEN   | Server token for Geocoding v6 and Static Images.                                                                                                           |
+During the initial 23 October 2026 local verification, the existing pooled Neon connection was saved as DATABASE_URL only in the Git-ignored .env.local file, and a direct read confirmed the existing tables. That read-only check created no database records or administrator accounts. This workstation needed a process-scoped NODE_OPTIONS=--dns-result-order=ipv4first setting to avoid an IPv6 connection timeout. Production administrator authentication was subsequently configured in Vercel's secret store; payment, mapping and media services still need their own configuration.
+
+| Key                   | Purpose                                                                                                                                                            |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| DATABASE_URL          | Existing Neon pooled PostgreSQL connection. Required for shared data.                                                                                              |
+| ADMIN_EMAILS          | Comma-separated administrator email allowlist.                                                                                                                     |
+| BETTER_AUTH_SECRET    | Random secret of at least 32 characters for standalone authentication.                                                                                             |
+| BETTER_AUTH_URL       | Canonical HTTPS origin for authentication and write requests; exact local origin during development. Preview deployments can use Vercel's injected deployment URL. |
+| BLOB_STORE_ID         | Private Vercel Blob store connected to the deployed project using OIDC.                                                                                            |
+| BLOB_READ_WRITE_TOKEN | Optional alternative to Blob OIDC authentication for local development or an existing store.                                                                       |
+| STRIPE_SECRET_KEY     | Stripe server key; start with test mode.                                                                                                                           |
+| STRIPE_WEBHOOK_SECRET | Secret for the deployed /api/stripe/webhook endpoint.                                                                                                              |
+| MAPBOX_ACCESS_TOKEN   | Server token for Geocoding v6 and Static Images.                                                                                                                   |
 
 Vercel's VERCEL_URL, VERCEL_PROJECT_PRODUCTION_URL, VERCEL_ENV and VERCEL_OIDC_TOKEN are platform-provided variables. They are not fabricated application credentials.
 
 Missing payment or mapping keys are reported as unavailable. Unknown product prices and quantities remain unknown. A quotation can be saved without enabling checkout. No claims of a completed payment, delivered message or connected service are shown when the operation did not happen.
 
-The database migration runner is npm run db:migrate. It applies checked-in migrations and the supplied portfolio in one transaction, preserving existing data. It must run against a verified connection before a production release; the build never creates tables.
+The database migration runner is npm run db:migrate. It applies checked-in migrations and the supplied portfolio in one transaction, preserving existing data. Check the existing schema before applying migrations; the build never creates tables. The initial read-only check on 23 October 2026 confirmed both checked-in migrations and all 13 expected tables in the existing Neon production database, with five active products and one settings record. No migration was needed or run for that check. At that point there were no standalone administrator accounts or uploaded media records; an explicitly authorized administrator account was provisioned later that day.
 
 ## Administrator access
 
-The published Site uses its existing authenticated account and ADMIN_EMAILS. Standalone Vercel authentication is a separate security boundary and fails closed when unconfigured. No standalone administrator account was created: automatic approval review rejected that access-control change. The included provisioning utility requires explicit account details, preserves existing accounts and is never invoked by installation, build or deployment.
+The existing Site uses its own authenticated account and ADMIN_EMAILS. Standalone Vercel authentication is a separate security boundary. On 23 October 2026, an explicitly authorized administrator account was provisioned using the repository utility, and `ADMIN_EMAILS`, `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL` were configured for Production through Vercel. Browser verification confirmed successful sign-in at `/admin` and a protected dashboard showing five products. Unauthenticated administration API requests return HTTP 401. Credentials and secret values remain outside Git.
+
+A separate temporary reviewer administrator account was subsequently created with the owner's approval, preserving the existing administrator allowlist. Its access was verified through HTTP sign-in and administration requests showing five products; administration access returned HTTP 401 after sign-out. Its credentials were saved privately in App Store Connect for TestFlight review, without sharing an existing user's password. Revoke this account's access when Apple no longer requires it for review.
+
+Public registration remains disabled, and the server-side administrator allowlist is enforced. The provisioning utility requires explicit account details, preserves existing accounts and is never invoked by installation, build or deployment.
 
 ## Image cutover
 
@@ -57,12 +69,20 @@ The published Site currently uses its existing image bucket. This Vercel target 
 
 ## iOS
 
-The SwiftUI source in ios/ continues to open the existing protected administration URL, which now uses the shared Neon database. It is not a signed application. Building, device-testing, signing and TestFlight distribution require macOS, Xcode and the owner's Apple Developer account. Change WorkspaceURL only after a replacement deployment is verified.
+The SwiftUI source in `ios/` opens `https://glasgow-landlord.vercel.app/admin`. Production administrator authentication and the authorized account are configured, and browser sign-in is verified. The app uses the same protected server routes as the website. Its endpoint is unchanged, so this server configuration does not require rebuilding the existing iOS app.
+
+The root `codemagic.yaml` builds the shared `AdminApp` scheme on a Mac mini M2. The `ios-simulator` workflow produces an unsigned simulator `.app.zip` for compilation checks. The `ios-testflight` workflow produces a signed IPA and uploads it to App Store Connect using app-scoped encrypted signing secrets.
+
+The [signed Codemagic build](https://codemagic.io/app/6adac66dea74d20e308310b3/build/6adad2648a524d15d6a63f26) succeeded on 23 October 2026 from commit `603e254`, taking 2 minutes 39 seconds and producing a 2.20 MB IPA. Apple accepted version **1.0, build 5**, reported processing state `VALID` and binary state `Validated`, and returned build icon asset metadata. The certificate-limit failure was resolved under the owner's delegated authorization by replacing a legacy certificate whose only listed provisioning profile was invalid. The replacement matches the existing encrypted signing key. No secrets are committed.
+
+Build 5 is saved against the App Store version 1.0 draft, which remains `Prepare for Submission`. Apple's displayed build icon and included AppIcon were verified to match the owner's supplied gold-and-black logo.
+
+The app is registered with bundle identifier `com.glasgowlandlord.admin`. Version 1.0, build 5 is attached to internal and private external TestFlight groups. One internal tester has status `Invited` for this app. One external tester is registered, with invitation and external availability awaiting Apple's approval. The first TestFlight beta review was submitted on 23 October 2026 and has status `WAITING_FOR_REVIEW`. Automatic external build notification is enabled, and the public invitation link is disabled. No App Store review was requested. Physical-device authentication, photo uploads and inventory edits through the native app remain unverified. See [ios/README.md](ios/README.md) for build evidence and distribution details.
 
 ## Operational limits
 
-- The Vercel deployment is blocked by team authorization; there is no Vercel deployment URL to report.
+- The Vercel production project is `gls16/glasgow-landlord`; its verified public URL is https://glasgow-landlord.vercel.app. The production database and administrator authentication are configured, and protected browser sign-in is verified. Physical-device administration flows remain unverified.
 - Stripe, Mapbox and Vercel Blob require real service configuration before live acceptance tests.
 - Checkout reservations rely on signed Stripe completion/expiration events. An unresolved provider/network failure must be reconciled before its reservation is released; no guessed release is performed.
 - The site remains noindex during private review. Final trading information, policies, public domain and access settings require a deliberate launch decision.
-- The secure configuration runner accepts a documented environment object through hidden terminal stdin, redacts credentials from child output and does not write secrets to disk.
+- The secure configuration runner accepts an environment object through hidden terminal stdin, supports Windows and Unix line endings, and redacts credentials from child output. It does not persist secrets itself; the child command determines whether configuration is saved locally.

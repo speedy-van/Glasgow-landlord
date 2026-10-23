@@ -15,13 +15,15 @@ import {
   type BoxProps,
 } from "@chakra-ui/react";
 import { ArrowUpRight, ArrowRight } from "lucide-react";
+import Link from "next/link";
+const DesignLink = chakra(Link);
 export const contentWidth = "1320px";
 export function Wrap({ children, ...props }: BoxProps) {
   return (
     <Box
       maxW={contentWidth}
       mx="auto"
-      px={{ base: "6", md: "10", xl: "14" }}
+      px={{ base: "5", md: "10", xl: "14" }}
       {...props}
     >
       {children}
@@ -39,7 +41,7 @@ export function Eyebrow({
     <Text
       textTransform="uppercase"
       letterSpacing=".19em"
-      fontSize="10px"
+      fontSize="11px"
       fontWeight="700"
       color={color}
       mb="5"
@@ -54,9 +56,9 @@ export function Editorial({ children, ...props }: BoxProps) {
       as="h2"
       fontFamily="editorial"
       fontWeight="400"
-      fontSize={{ base: "40px", md: "56px" }}
-      lineHeight="1.06"
-      letterSpacing="-.035em"
+      fontSize={{ base: "42px", md: "60px" }}
+      lineHeight="1.04"
+      letterSpacing="-.025em"
       {...props}
     >
       {children}
@@ -97,9 +99,9 @@ export function Action({
       border="1px solid"
       borderColor={secondary ? "line" : "forest"}
       borderRadius="0"
-      fontSize="12px"
+      fontSize="13px"
       fontWeight="600"
-      gap="8"
+      gap="5"
       _hover={{
         bg: secondary ? "sage" : "forestDark",
         transform: "translateY(-1px)",
@@ -121,7 +123,7 @@ export function TextLink({
   light?: boolean;
 }) {
   return (
-    <chakra.a
+    <DesignLink
       href={href}
       display="inline-flex"
       alignItems="center"
@@ -130,13 +132,13 @@ export function TextLink({
       borderBottom="1px solid"
       borderColor={light ? "whiteAlpha.400" : "line"}
       py="3"
-      fontSize="12px"
+      fontSize="13px"
       fontWeight="600"
       _hover={{ borderColor: light ? "white" : "forest" }}
     >
       {children}
       <ArrowRight size={16} />
-    </chakra.a>
+    </DesignLink>
   );
 }
 export function Empty({

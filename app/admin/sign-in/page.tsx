@@ -5,11 +5,17 @@ import { AdminSignIn, AdminUnavailable } from "@/components/admin-auth";
 export const dynamic = "force-dynamic";
 export const metadata = {
   title: "Administrator sign in",
+  description: "Sign in to the private Glasgow Landlord Solutions workspace.",
   robots: { index: false, follow: false },
 };
 export default async function Page() {
   if (!authenticationConfigured()) return <AdminUnavailable />;
-  const session = await getAdminSession();
+  let session;
+  try {
+    session = await getAdminSession();
+  } catch {
+    return <AdminUnavailable />;
+  }
   if (
     session &&
     administratorEmails().includes(session.user.email.toLowerCase())

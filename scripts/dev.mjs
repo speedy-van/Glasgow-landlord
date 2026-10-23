@@ -9,7 +9,7 @@ const args = process.argv
 if (!args.includes("--hostname")) args.push("--hostname", "0.0.0.0");
 const child = spawn(
   process.execPath,
-  [require.resolve("next/dist/bin/next"), "dev", ...args],
+  [require.resolve("next/dist/bin/next"), "dev", "--webpack", ...args],
   { stdio: "inherit", env: process.env },
 );
 for (const signal of ["SIGINT", "SIGTERM"])

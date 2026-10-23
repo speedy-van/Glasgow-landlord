@@ -1,1 +1,25 @@
-{"name":"Property Furnishing Admin","short_name":"Admin","start_url":"/admin","scope":"/","display":"standalone","background_color":"#f7f5ef","theme_color":"#203b30","icons":[{"src":"/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any"},{"src":"/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}]}
+{
+  "name": "Landlord Solutions",
+  "short_name": "Landlord",
+  "description": "Furniture and property furnishing in Glasgow.",
+  "lang": "en-GB",
+  "start_url": "/admin",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f6f3ec",
+  "theme_color": "#253d35",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

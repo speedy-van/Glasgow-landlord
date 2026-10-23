@@ -1,0 +1,84 @@
+workflows:
+  ios-simulator:
+    name: AdminApp simulator validation
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      xcode: latest
+    scripts:
+      - name: Build unsigned iOS simulator app
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          xcodebuild -version
+          xcodebuild -list -json -project ios/AdminApp.xcodeproj
+          mkdir -p build/artifacts
+          cp ios/AdminApp/Assets.xcassets/AppIcon.appiconset/AppIcon.png build/artifacts/AdminApp-icon.png
+          xcodebuild build \
+            -project ios/AdminApp.xcodeproj \
+            -scheme AdminApp \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/ios-simulator \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee build/artifacts/xcodebuild.log
+          ditto -c -k --keepParent \
+            build/ios-simulator/Build/Products/Debug-iphonesimulator/AdminApp.app \
+            build/artifacts/AdminApp-simulator.app.zip
+    artifacts:
+      - build/artifacts/*.app.zip
+      - build/artifacts/*.log
+      - build/artifacts/*.png
+  ios-testflight:
+    name: Glasgow Landlord Admin signed iOS build
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      xcode: latest
+      groups:
+        - glasgow_apple_signing
+      vars:
+        BUNDLE_ID: com.glasgowlandlord.admin
+        APP_STORE_APPLE_ID: "6826049467"
+    scripts:
+      - name: Check signing configuration
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          : "${APP_STORE_CONNECT_ISSUER_ID:?Configure the glasgow_apple_signing secret group}"
+          : "${APP_STORE_CONNECT_KEY_IDENTIFIER:?Configure the App Store Connect key identifier}"
+          : "${APP_STORE_CONNECT_PRIVATE_KEY:?Configure the App Store Connect private key}"
+          : "${CERTIFICATE_PRIVATE_KEY:?Configure the distribution certificate private key}"
+          : "${PROJECT_BUILD_NUMBER:?Codemagic project build number is required}"
+          mkdir -p build/artifacts
+          cp ios/AdminApp/Assets.xcassets/AppIcon.appiconset/AppIcon.png build/artifacts/AdminApp-icon.png
+      - name: Configure App Store signing
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          keychain initialize
+          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
+          keychain add-certificates
+          xcode-project use-profiles --project "$CM_BUILD_DIR/ios/AdminApp.xcodeproj"
+      - name: Build signed IPA
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          cd "$CM_BUILD_DIR/ios"
+          xcrun agvtool new-version -all "$PROJECT_BUILD_NUMBER"
+          cd "$CM_BUILD_DIR"
+          xcode-project build-ipa --project "$CM_BUILD_DIR/ios/AdminApp.xcodeproj" --scheme AdminApp
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - build/artifacts/*.png
+    publishing:
+      app_store_connect:
+        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
+        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
+        submit_to_testflight: false
+        submit_to_app_store: false

@@ -15,3 +15,11 @@ vite.config.ts
 cloudflare-env.d.ts
 scripts/connector-preview
 scripts/vite
+.vercel
+.codex
+.agents
+.playwright-mcp
+outputs
+work
+AGENTS.md
+CLAUDE.md

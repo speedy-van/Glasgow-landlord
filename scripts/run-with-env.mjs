@@ -23,7 +23,7 @@ process.stdin.on("data", (chunk) => {
   if (chunk.includes("\u0003")) process.exit(130);
   input += chunk;
   if (input.length > 30_000) process.exit(1);
-  if (!input.includes("\n")) return;
+  if (!/[\r\n]/.test(input)) return;
   process.stdin.pause();
   process.stdin.setRawMode(false);
   let payload;
