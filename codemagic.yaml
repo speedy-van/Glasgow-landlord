@@ -1,0 +1,32 @@
+workflows:
+  ios-simulator:
+    name: AdminApp simulator validation
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      xcode: latest
+    scripts:
+      - name: Build unsigned iOS simulator app
+        script: |
+          #!/usr/bin/env bash
+          set -euo pipefail
+          xcodebuild -version
+          xcodebuild -list -json -project ios/AdminApp.xcodeproj
+          mkdir -p build/artifacts
+          xcodebuild build \
+            -project ios/AdminApp.xcodeproj \
+            -scheme AdminApp \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/ios-simulator \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            | tee build/artifacts/xcodebuild.log
+          ditto -c -k --keepParent \
+            build/ios-simulator/Build/Products/Debug-iphonesimulator/AdminApp.app \
+            build/artifacts/AdminApp-simulator.app.zip
+    artifacts:
+      - build/artifacts/*.app.zip
+      - build/artifacts/*.log
