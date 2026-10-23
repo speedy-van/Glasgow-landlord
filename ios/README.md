@@ -2,7 +2,7 @@
 
 Open `AdminApp.xcodeproj` in Xcode on macOS. The target supports iOS 17 and later and uses only Apple frameworks. No secrets are embedded in the app.
 
-1. Select your signing team and replace `com.example.FurnishingAdmin` with the bundle identifier registered in your Apple Developer account.
+1. The registered bundle identifier is `com.glasgowlandlord.admin`, with Apple team `BXK52CMHR2`. The [App Store Connect record](https://appstoreconnect.apple.com/apps/6826049467/distribution) is named Glasgow Landlord Admin (SKU `GLS-ADMIN-IOS-001`, primary language English U.K.).
 2. `WorkspaceURL` in `AdminApp/Info.plist` points to `https://glasgow-landlord.vercel.app/admin`.
 3. Run on an iPhone or simulator. Sign in using the protected website's normal authentication.
 4. Test sign-in, camera/photo selection, product edits and reconnecting after a network interruption on a physical device. External identity providers may require Safari; an Open in Safari fallback is included in the network error state.
@@ -18,6 +18,10 @@ The root `codemagic.yaml` contains the `ios-simulator` workflow. Select the bran
 
 The [first Codemagic build](https://codemagic.io/app/6adac66dea74d20e308310b3/build/6adac6f78a524d15d6a63cfb) succeeded on 23 October 2026 from commit `44100c3` on `design/refinement`. Xcode 26.6 compiled the arm64 and x86_64 simulator application, and Codemagic published `AdminApp-simulator.app.zip` (140.48 KB). The complete job took 56 seconds; this verifies compilation and artifact creation, not a simulator launch or authenticated administration flows.
 
-The simulator artifact is not an IPA and cannot be installed on a physical iPhone or uploaded to TestFlight. For distribution, first register the bundle identifier and create the app in App Store Connect, then configure signing with the correct Apple team, certificate and provisioning profile. No signing credentials are stored in this repository.
+The [second build](https://codemagic.io/app/6adac66dea74d20e308310b3/build/6adac9008a524d15d6a63d5a) succeeded from commit `d12aa0d` with the owner's supplied logo compiled into the app. It published a 2.23 MB simulator application and took 1 minute 18 seconds.
+
+The simulator artifact is not an IPA and cannot be installed on a physical iPhone or uploaded to TestFlight. The bundle identifier and App Store Connect record have been created; signing is the remaining setup step. No signing credentials are stored in this repository.
+
+The `ios-testflight` workflow is prepared for a signed IPA and upload to App Store Connect. It requires the app-scoped encrypted environment group `glasgow_apple_signing` with `APP_STORE_CONNECT_ISSUER_ID`, `APP_STORE_CONNECT_KEY_IDENTIFIER`, `APP_STORE_CONNECT_PRIVATE_KEY` (the API `.p8` contents), and `CERTIFICATE_PRIVATE_KEY` (a separate reusable distribution certificate private key). The group has not yet been configured. API keys and private keys must never be committed, printed in build logs or included in downloadable artifacts. The workflow fetches matching signing files, creates them when needed, sets a unique build number from Codemagic, and uploads without requesting beta or App Store review. It has not yet been run.
 
 The deployed website still requires its administrator authentication configuration and an administrator account before the app can be used to manage inventory. A successful native build does not verify authenticated website flows. Physical-device authentication, photo uploads and product edits must be checked after those are configured. App Store review has not been performed.
