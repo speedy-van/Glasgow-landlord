@@ -2,9 +2,9 @@
 
 This branch is a standard Next.js App Router deployment target for Vercel. It preserves the supplied photographs, Chakra UI v3 design, TypeScript models, product catalogue, furnishing packs, enquiries, stock reservations and Stripe webhook behaviour. Node.js 24 and npm are required. Exact resolved dependencies are recorded in package-lock.json.
 
-The Vercel production site is available at [glasgow-landlord.vercel.app](https://glasgow-landlord.vercel.app). On 23 October 2026, the authenticated CLI created and linked `gls16/glasgow-landlord`, stored `DATABASE_URL` as a Production Secret, and deployed source commit `a043680`. The existing Site remains on its previous runtime with its existing ChatGPT authentication and the same Neon database.
+The Vercel production site is available at [glasgow-landlord.vercel.app](https://glasgow-landlord.vercel.app). On 23 October 2026, the authenticated CLI created and linked `gls16/glasgow-landlord`, stored `DATABASE_URL` as a Production Secret, and initially deployed source commit `a043680`. The [subsequent production deployment](https://vercel.com/gls16/glasgow-landlord/5dzzEMJ6QPMzPEzjHnzGMnymbrx5) of source commit `1b06426` is Ready with administrator authentication configured. The existing Site remains on its previous runtime with its existing ChatGPT authentication and the same Neon database.
 
-Production verification confirmed the public home page and catalogue load successfully, `/api/bootstrap` returns live data with five products, and the canonical origin matches the production domain. Browser checks covered filtering, basket quantity/removal, mobile navigation and focus management without console errors or warnings. No migration, administrator provisioning, valid test enquiry or payment was performed during deployment.
+Production verification confirmed the public home page and catalogue load successfully, `/api/bootstrap` returns live data with five products, and the canonical origin matches the production domain. Browser checks covered filtering, basket quantity/removal, mobile navigation and focus management without console errors or warnings. No migration, administrator provisioning, valid test enquiry or payment was performed during the initial deployment. Subsequent browser verification confirmed administrator sign-in and a protected dashboard showing five products; unauthenticated `/api/admin` requests still return HTTP 401, and `/api/auth/ok` returns HTTP 200.
 
 ## Implemented and verified
 
@@ -35,7 +35,7 @@ Tests exercise real PostgreSQL semantics through PGlite. They cover stock reserv
 
 Use the hosting secret editor. Never commit real values or expose them through NEXT_PUBLIC_ variables.
 
-During the 23 October 2026 local verification, the existing pooled Neon connection was saved as DATABASE_URL only in the Git-ignored .env.local file, and a direct read confirmed the existing tables. No database records or administrator accounts were created. This workstation needed a process-scoped NODE_OPTIONS=--dns-result-order=ipv4first setting to avoid an IPv6 connection timeout. The other service credentials remain unconfigured locally; deployment secrets must be configured separately.
+During the initial 23 October 2026 local verification, the existing pooled Neon connection was saved as DATABASE_URL only in the Git-ignored .env.local file, and a direct read confirmed the existing tables. That read-only check created no database records or administrator accounts. This workstation needed a process-scoped NODE_OPTIONS=--dns-result-order=ipv4first setting to avoid an IPv6 connection timeout. Production administrator authentication was subsequently configured in Vercel's secret store; payment, mapping and media services still need their own configuration.
 
 | Key                   | Purpose                                                                                                                                                            |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -53,11 +53,13 @@ Vercel's VERCEL_URL, VERCEL_PROJECT_PRODUCTION_URL, VERCEL_ENV and VERCEL_OIDC_T
 
 Missing payment or mapping keys are reported as unavailable. Unknown product prices and quantities remain unknown. A quotation can be saved without enabling checkout. No claims of a completed payment, delivered message or connected service are shown when the operation did not happen.
 
-The database migration runner is npm run db:migrate. It applies checked-in migrations and the supplied portfolio in one transaction, preserving existing data. Check the existing schema before applying migrations; the build never creates tables. A read-only check on 23 October 2026 confirmed both checked-in migrations and all 13 expected tables in the existing Neon production database, with five active products and one settings record. No migration was needed or run during this design refinement. There were no standalone administrator accounts or uploaded media records.
+The database migration runner is npm run db:migrate. It applies checked-in migrations and the supplied portfolio in one transaction, preserving existing data. Check the existing schema before applying migrations; the build never creates tables. The initial read-only check on 23 October 2026 confirmed both checked-in migrations and all 13 expected tables in the existing Neon production database, with five active products and one settings record. No migration was needed or run for that check. At that point there were no standalone administrator accounts or uploaded media records; an explicitly authorized administrator account was provisioned later that day.
 
 ## Administrator access
 
-The existing Site uses its own authenticated account and ADMIN_EMAILS. Standalone Vercel authentication is a separate security boundary and currently fails closed because its administrator credentials and account are not configured. `ADMIN_EMAILS`, `BETTER_AUTH_SECRET` and an explicitly provisioned administrator account are required before sign-in is available. Public registration remains disabled. The included provisioning utility requires explicit account details, preserves existing accounts and is never invoked by installation, build or deployment.
+The existing Site uses its own authenticated account and ADMIN_EMAILS. Standalone Vercel authentication is a separate security boundary. On 23 October 2026, an explicitly authorized administrator account was provisioned using the repository utility, and `ADMIN_EMAILS`, `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL` were configured for Production through Vercel. Browser verification confirmed successful sign-in at `/admin` and a protected dashboard showing five products. Unauthenticated administration API requests return HTTP 401. Credentials and secret values remain outside Git.
+
+Public registration remains disabled, and the server-side administrator allowlist is enforced. The provisioning utility requires explicit account details, preserves existing accounts and is never invoked by installation, build or deployment.
 
 ## Image cutover
 
@@ -65,7 +67,7 @@ The published Site currently uses its existing image bucket. This Vercel target 
 
 ## iOS
 
-The SwiftUI source in `ios/` opens `https://glasgow-landlord.vercel.app/admin`. The Vercel administrator authentication and account must be configured before inventory management is available. The app uses the same protected server routes as the website.
+The SwiftUI source in `ios/` opens `https://glasgow-landlord.vercel.app/admin`. Production administrator authentication and the authorized account are configured, and browser sign-in is verified. The app uses the same protected server routes as the website. Its endpoint is unchanged, so this server configuration does not require rebuilding the existing iOS app.
 
 The root `codemagic.yaml` builds the shared `AdminApp` scheme on a Mac mini M2. The `ios-simulator` workflow produces an unsigned simulator `.app.zip` for compilation checks. The `ios-testflight` workflow produces a signed IPA and uploads it to App Store Connect using app-scoped encrypted signing secrets.
 
@@ -73,11 +75,11 @@ The [signed Codemagic build](https://codemagic.io/app/6adac66dea74d20e308310b3/b
 
 Build 5 is saved against the App Store version 1.0 draft, which remains `Prepare for Submission`. Apple's displayed build icon and included AppIcon were verified to match the owner's supplied gold-and-black logo.
 
-The app is registered with bundle identifier `com.glasgowlandlord.admin`. No internal testers have been assigned, and neither TestFlight beta review nor App Store review was requested. Physical-device authentication, photo uploads and inventory edits remain unverified; the deployed website's administrator authentication and account are still unconfigured. See [ios/README.md](ios/README.md) for build evidence and distribution details.
+The app is registered with bundle identifier `com.glasgowlandlord.admin`. No internal testers have been assigned, and neither TestFlight beta review nor App Store review was requested. Physical-device authentication, photo uploads and inventory edits through the native app remain unverified. See [ios/README.md](ios/README.md) for build evidence and distribution details.
 
 ## Operational limits
 
-- The Vercel production project is `gls16/glasgow-landlord`; its verified public URL is https://glasgow-landlord.vercel.app. The production database is configured. Standalone administrator access still requires its separate configuration and account.
+- The Vercel production project is `gls16/glasgow-landlord`; its verified public URL is https://glasgow-landlord.vercel.app. The production database and administrator authentication are configured, and protected browser sign-in is verified. Physical-device administration flows remain unverified.
 - Stripe, Mapbox and Vercel Blob require real service configuration before live acceptance tests.
 - Checkout reservations rely on signed Stripe completion/expiration events. An unresolved provider/network failure must be reconciled before its reservation is released; no guessed release is performed.
 - The site remains noindex during private review. Final trading information, policies, public domain and access settings require a deliberate launch decision.

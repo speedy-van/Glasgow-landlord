@@ -4,7 +4,7 @@ Open `AdminApp.xcodeproj` in Xcode on macOS. The target supports iOS 17 and late
 
 1. The registered bundle identifier is `com.glasgowlandlord.admin`, with Apple team `BXK52CMHR2`. The [App Store Connect record](https://appstoreconnect.apple.com/apps/6826049467/distribution) is named Glasgow Landlord Admin (SKU `GLS-ADMIN-IOS-001`, primary language English U.K.).
 2. `WorkspaceURL` in `AdminApp/Info.plist` points to `https://glasgow-landlord.vercel.app/admin`.
-3. After the deployed website's administrator authentication and account are configured, run on an iPhone or simulator and sign in through the protected website.
+3. Run on an iPhone or simulator and sign in through the protected website. Production administrator authentication and the authorized account are configured; browser sign-in has been verified.
 4. Test sign-in, camera/photo selection, product edits and reconnecting after a network interruption on a physical device. An Open in Safari fallback is included in the network error state.
 5. Use the `ios-testflight` Codemagic workflow below for subsequent signed builds and uploads. Xcode Organizer is also available for local distribution on macOS.
 
@@ -20,7 +20,7 @@ The [signed build](https://codemagic.io/app/6adac66dea74d20e308310b3/build/6adad
 
 Build 5 is selected and saved against the App Store version 1.0 draft, which remains `Prepare for Submission`. Both the build icon and the AppIcon shown under Included Assets were visually verified in App Store Connect to match the owner's supplied gold-and-black logo; the served Apple build icon was also checked.
 
-No internal testers have been assigned. Neither TestFlight beta review nor App Store review was requested. Apple's binary validation and successful upload do not verify physical-device behaviour or authenticated administration flows.
+No internal testers have been assigned. Neither TestFlight beta review nor App Store review was requested. Apple's binary validation and successful upload do not verify physical-device behaviour or authenticated native administration flows.
 
 The `ios-simulator` workflow publishes `AdminApp-simulator.app.zip` and `xcodebuild.log` without Apple credentials or third-party dependencies. That simulator artifact cannot be installed on a physical iPhone or uploaded to TestFlight.
 
@@ -38,4 +38,6 @@ The [first distribution attempt](https://codemagic.io/app/6adac66dea74d20e308310
 
 The app declares system-only encryption (`ITSAppUsesNonExemptEncryption=false`) because the native source uses WebKit HTTPS and no custom cryptography. Apple confirmed this value for the uploaded build.
 
-The deployed website still requires its administrator authentication configuration and an administrator account before the app can be used to manage inventory. A successful native build does not verify authenticated website flows. Physical-device authentication, photo uploads and product edits must be checked after those are configured. App Store review has not been performed.
+Production administrator authentication and an explicitly authorized account were configured on 23 October 2026. The [production deployment](https://vercel.com/gls16/glasgow-landlord/5dzzEMJ6QPMzPEzjHnzGMnymbrx5) of source commit `1b06426` is Ready. Browser verification confirmed sign-in at `/admin` and a protected dashboard showing five products. Unauthenticated `/api/admin` requests return HTTP 401, while `/api/auth/ok` returns HTTP 200. Credentials and secret values remain outside Git.
+
+The `/admin` endpoint used by version 1.0, build 5 is unchanged, so this server configuration does not require a new iOS build. Physical-device authentication, photo uploads and product edits through the native app remain unverified. App Store review has not been performed.
