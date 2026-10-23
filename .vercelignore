@@ -1,0 +1,17 @@
+.git
+.openai
+.env*
+node_modules
+.next
+dist
+.wrangler
+.sites-runtime
+docs
+ios
+tests
+worker
+vendor
+vite.config.ts
+cloudflare-env.d.ts
+scripts/connector-preview
+scripts/vite

@@ -1,0 +1,42 @@
+{
+  "name": "furnishing-store",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": "24.x"
+  },
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "next build",
+    "start": "next start --hostname 0.0.0.0",
+    "typecheck": "next typegen && tsc --noEmit",
+    "test": "node --experimental-strip-types --test tests/*.test.mjs",
+    "db:migrate": "node --experimental-strip-types scripts/setup-neon.mjs",
+    "admin:provision": "node --experimental-strip-types scripts/setup-admin.mjs",
+    "format": "prettier --write app components lib tests scripts/setup-admin.mjs scripts/setup-neon.mjs README.md",
+    "db:check": "node scripts/check-neon.mjs"
+  },
+  "dependencies": {
+    "@chakra-ui/react": "3.37.0",
+    "@emotion/react": "11.14.0",
+    "@neondatabase/serverless": "1.2.0",
+    "@vercel/blob": "2.8.2",
+    "better-auth": "1.7.12",
+    "framer-motion": "14.6.0",
+    "lucide-react": "^1.31.0",
+    "next": "16.3.4",
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
+    "stripe": "23.0.1",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.11",
+    "@types/node": "22.19.19",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "prettier": "3.9.10",
+    "typescript": "7.0.2"
+  },
+  "type": "module"
+}
