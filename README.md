@@ -2,7 +2,9 @@
 
 This branch is a standard Next.js App Router deployment target for Vercel. It preserves the supplied photographs, Chakra UI v3 design, TypeScript models, product catalogue, furnishing packs, enquiries, stock reservations and Stripe webhook behaviour. Node.js 24 and npm are required. Exact resolved dependencies are recorded in package-lock.json.
 
-The currently published Site remains on its existing runtime and uses the same Neon database. Its existing ChatGPT authentication remains in place. This branch has not been deployed to Vercel. On 23 October 2026, the connected Vercel account returned successful responses with empty team and project lists, so no existing deployment target was available through that connection.
+The Vercel production site is available at [glasgow-landlord.vercel.app](https://glasgow-landlord.vercel.app). On 23 October 2026, the authenticated CLI created and linked `gls16/glasgow-landlord`, stored `DATABASE_URL` as a Production Secret, and deployed source commit `a043680`. The existing Site remains on its previous runtime with its existing ChatGPT authentication and the same Neon database.
+
+Production verification confirmed the public home page and catalogue load successfully, `/api/bootstrap` returns live data with five products, and the canonical origin matches the production domain. Browser checks covered filtering, basket quantity/removal, mobile navigation and focus management without console errors or warnings. No migration, administrator provisioning, valid test enquiry or payment was performed during deployment.
 
 ## Implemented and verified
 
@@ -55,7 +57,7 @@ The database migration runner is npm run db:migrate. It applies checked-in migra
 
 ## Administrator access
 
-The published Site uses its existing authenticated account and ADMIN_EMAILS. Standalone Vercel authentication is a separate security boundary and fails closed when unconfigured. No standalone administrator account was created: automatic approval review rejected that access-control change. The included provisioning utility requires explicit account details, preserves existing accounts and is never invoked by installation, build or deployment.
+The existing Site uses its own authenticated account and ADMIN_EMAILS. Standalone Vercel authentication is a separate security boundary and currently fails closed because its administrator credentials and account are not configured. `ADMIN_EMAILS`, `BETTER_AUTH_SECRET` and an explicitly provisioned administrator account are required before sign-in is available. Public registration remains disabled. The included provisioning utility requires explicit account details, preserves existing accounts and is never invoked by installation, build or deployment.
 
 ## Image cutover
 
@@ -67,7 +69,7 @@ The SwiftUI source in ios/ continues to open the existing protected administrati
 
 ## Operational limits
 
-- The connected Vercel account exposes no teams or projects. A verified target and its service configuration are still required; there is no Vercel deployment URL to report.
+- The Vercel production project is `gls16/glasgow-landlord`; its verified public URL is https://glasgow-landlord.vercel.app. The production database is configured. Standalone administrator access still requires its separate configuration and account.
 - Stripe, Mapbox and Vercel Blob require real service configuration before live acceptance tests.
 - Checkout reservations rely on signed Stripe completion/expiration events. An unresolved provider/network failure must be reconciled before its reservation is released; no guessed release is performed.
 - The site remains noindex during private review. Final trading information, policies, public domain and access settings require a deliberate launch decision.
