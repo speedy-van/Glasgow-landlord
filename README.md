@@ -67,7 +67,7 @@ The published Site currently uses its existing image bucket. This Vercel target 
 
 The SwiftUI source in `ios/` opens `https://glasgow-landlord.vercel.app/admin`. The Vercel administrator authentication and account must be configured before inventory management is available. The app uses the same protected server routes as the website.
 
-The root `codemagic.yaml` builds the shared `AdminApp` scheme on a Mac mini M2 using the `ios-simulator` workflow. Its unsigned simulator `.app.zip` is for native compilation validation; it cannot be installed on an iPhone or uploaded to TestFlight. See [ios/README.md](ios/README.md) for setup and distribution requirements. The app is registered in the owner's Apple team with bundle identifier `com.glasgowlandlord.admin` and App Store Connect ID `6826049467`; signing credentials still need to be configured in Codemagic before a distribution build can run.
+The root `codemagic.yaml` builds the shared `AdminApp` scheme on a Mac mini M2 using the `ios-simulator` workflow. Its unsigned simulator `.app.zip` is for native compilation validation; it cannot be installed on an iPhone or uploaded to TestFlight. See [ios/README.md](ios/README.md) for setup and distribution requirements. The app is registered in the owner's Apple team with bundle identifier `com.glasgowlandlord.admin` and App Store Connect ID `6826049467`. App-scoped signing secrets are configured in Codemagic; the first distribution attempt was stopped by Apple's existing distribution-certificate limit before an IPA was created or uploaded.
 
 ## Operational limits
 
